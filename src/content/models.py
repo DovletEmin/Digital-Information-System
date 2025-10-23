@@ -4,6 +4,9 @@ from django.contrib.auth.models import User
 class ArticleCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
+    class Meta:
+        verbose_name_plural = "Article Categories"
+
     def __str__(self):
         return self.name
     
@@ -14,6 +17,8 @@ class BookCategory(models.Model):
 
     class Meta:
         unique_together = ('name', 'parent')
+        verbose_name_plural = "Book Categories"
+
 
     def __str__(self):
         if self.parent:
@@ -27,6 +32,8 @@ class DissertationCategory(models.Model):
 
     class Meta:
         unique_together = ('name', 'parent')
+        verbose_name_plural = "Dissertation Categories"
+
     
     def __str__(self):
         if self.parent:
