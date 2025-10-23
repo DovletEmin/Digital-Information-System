@@ -4,34 +4,36 @@ from .models import (
     ArticleCategory, BookCategory, DissertationCategory
 )
 
-
 class ArticleCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ArticleCategory
         fields = ['id', 'name']
 
-
 class BookCategorySerializer(serializers.ModelSerializer):
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
-    subcategories = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    subcategories = serializers.SerializerMethodField()
 
     class Meta:
         model = BookCategory
         fields = ['id', 'name', 'parent', 'subcategories']
 
+    def get_subcategories(self, obj):
+        return [category.id for category in obj.subcategories.all()]
 
 class DissertationCategorySerializer(serializers.ModelSerializer):
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
-    subcategories = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    subcategories = serializers.SerializerMethodField()
 
     class Meta:
         model = DissertationCategory
         fields = ['id', 'name', 'parent', 'subcategories']
 
+    def get_subcategories(self, obj):
+        return [category.id for category in obj.subcategories.all()]
 
 class ArticleSerializer(serializers.ModelSerializer):
     categories = ArticleCategorySerializer(many=True, read_only=True)
-    bookmarks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    bookmarks = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
@@ -39,11 +41,13 @@ class ArticleSerializer(serializers.ModelSerializer):
                   'language', 'type', 'publication_date', 'source_name', 'source_url',
                   'newspaper_or_journal', 'categories', 'bookmarks']
         read_only_fields = fields
-        
 
-class BookSerializer(serializers.ModelField):
+    def get_bookmarks(self, obj):
+        return [user.id for user in obj.bookmarks.all()]
+
+class BookSerializer(serializers.ModelSerializer):
     categories = BookCategorySerializer(many=True, read_only=True)
-    bookmarks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    bookmarks = serializers.SerializerMethodField()
     cover_image = serializers.ImageField(read_only=True)
     epub_file = serializers.FileField(read_only=True)
 
@@ -53,13 +57,18 @@ class BookSerializer(serializers.ModelField):
                   'rating', 'views', 'language', 'categories', 'bookmarks']
         read_only_fields = fields
 
+    def get_bookmarks(self, obj):
+        return [user.id for user in obj.bookmarks.all()]
 
-class DissertationSerializer(serializers.ModelField):
+class DissertationSerializer(serializers.ModelSerializer):
     categories = DissertationCategorySerializer(many=True, read_only=True)
-    bookmarks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    bookmarks = serializers.SerializerMethodField()
 
     class Meta:
-        models = Dissertation
+        model = Dissertation
         fields = ['id', 'title', 'content', 'author', 'author_workplace', 'rating',
                   'views', 'language', 'publication_date', 'categories', 'bookmarks']
         read_only_fields = fields
+
+    def get_bookmarks(self, obj):
+        return [user.id for user in obj.bookmarks.all()]
