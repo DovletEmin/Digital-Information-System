@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'content',
     'rest_framework',
     'drf_yasg',
+    'django-filters',
 ]
 
 MIDDLEWARE = [
@@ -76,7 +77,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  
+        'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
     ],
 }
 
