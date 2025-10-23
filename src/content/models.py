@@ -62,5 +62,31 @@ class Article(models.Model):
     categories = models.ManyToManyField(ArticleCategory, related_name='articles', blank=True)
 
     def __str__(self):
-        return f"{self.title} > {self.language} > {self.categories}"
+        return f"{self.title} > {self.author} > {self.language} > {self.categories}"
+
+
+class Book(models.Model):
+    LANGUAGE_CHOICES = [
+        ('tm', 'Turkmen'),
+        ('ru', 'Russian'),
+        ('en', 'English'),
+    ]
+
+    title = models.CharField(max_length=255)
+    content = models.TextField(blank=True, null=True)
+    epub_file = models.FileField(upload_to='books/epub/', blank=True, null=True)
+    author = models.CharField(max_length=100)
+    rating = models.FloatField(default=0.0)
+    views = models.IntegerField(default=0)
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
+    bookmarks = models.ManyToManyField(User, related_name='bookmarked_books', blank=True)
+    categories = models.ManyToManyField(BookCategory, related_name='books', blank=True)
+
+    def __str__(self):
+        return f"{self.title} > {self.author} > {self.language} > {self.categories}"
     
+    def save(self, *args, **kwargs):
+        if not self.content and not self.epub_file:
+            raise ValueError("Должно быть заполнено хотя бы content или epub_file.")
+        super().save(*args, **kwargs)
+        
