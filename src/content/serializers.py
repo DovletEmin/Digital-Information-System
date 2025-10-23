@@ -11,3 +11,11 @@ class ArticleCategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
+class BookCategorySeralizer(serializers.ModelSerializer):
+    parent = serializers.PrimaryKeyRelatedField(queryset=BookCategory.objects.all(), allow_null=True)
+    subcategories = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = BookCategory
+        fields = ['id', 'name', 'parent', 'subcategories']
+
