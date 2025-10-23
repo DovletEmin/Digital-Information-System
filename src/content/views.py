@@ -36,4 +36,9 @@ class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = BookCategory.objects.all()
     serializer_class = BookCategorySerializer
     filterset_fields = ['parent']
-    
+
+
+class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = DissertationCategory.objects.all()
+    serializer_class = DissertationCategorySerializer
+    filterset_fields = ['parent']
