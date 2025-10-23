@@ -52,3 +52,14 @@ class BookSerializer(serializers.ModelField):
         fields = ['id', 'title', 'content', 'epub_file', 'cover_image', 'author',
                   'rating', 'views', 'language', 'categories', 'bookmarks']
         read_only_fields = fields
+
+
+class DissertationSerializer(serializers.ModelField):
+    categories = DissertationCategorySerializer(many=True, read_only=True)
+    bookmarks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+    class Meta:
+        models = Dissertation
+        fields = ['id', 'title', 'content', 'author', 'author_workplace', 'rating',
+                  'views', 'language', 'publication_date', 'categories', 'bookmarks']
+        read_only_fields = fields
