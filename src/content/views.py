@@ -23,4 +23,5 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
 
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Dissertation.objects.all()
-    serializer_class = Dissertation
+    serializer_class = DissertationSerializer
+    filterset_fields = ['language', 'categories']
