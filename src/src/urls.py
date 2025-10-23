@@ -22,7 +22,7 @@ router.register(r'dissertation-categories', DissertationCategoryViewSet)
 schema_view = get_schema_view(
     openapi.Info(
         title="Sanly Maglumat Ulgamy API",
-        default_version="v1"
+        default_version="v1",
         description="API для получения статей, книг и диссертаций (только GET)",
     ),
     public=True,
