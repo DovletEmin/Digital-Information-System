@@ -13,4 +13,10 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
     filterset_fields = ['language', 'type', 'categories']
+
+
+class BookViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    filterset_fields = ['language', 'categories']
     
