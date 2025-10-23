@@ -15,6 +15,7 @@ env/
 *.pyc
 /staticfiles/
 /media/
+migrations/
 
 # IDEs
 .vscode/
