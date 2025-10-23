@@ -102,7 +102,7 @@ class Book(models.Model):
 class Dissertation(models.Model):
     LANGUAGE_CHOICES = [
         ('tm', 'Turkmen'),
-        ('rm', 'Russian'),
+        ('ru', 'Russian'),
         ('en', 'English'),
     ]
 
