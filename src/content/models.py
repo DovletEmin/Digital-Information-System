@@ -89,4 +89,25 @@ class Book(models.Model):
         if not self.content and not self.epub_file:
             raise ValueError("Должно быть заполнено хотя бы content или epub_file.")
         super().save(*args, **kwargs)
-        
+
+
+class Dissertation(models.Model):
+    LANGUAGE_CHOICES = [
+        ('tm', 'Turkmen'),
+        ('rm', 'Russian'),
+        ('en', 'English'),
+    ]
+
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    author = models.CharField(max_length=100)
+    author_workplace = models.CharField(max_length=255, blank=True, null=True)
+    rating = models.FloatField(default=0.0)
+    views = models.IntegerField(default=0)
+    bookmarks = models.ManyToManyField(User, related_name='bookmarked_dissertations', blank=True)
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
+    publication_date = models.DateField()
+    categories = models.ManyToManyField(DissertationCategory, related_name='dissertations', blank=True)
+
+    def __str__(self):
+        return f"{self.title} > {self.author} > {self.language} > {self.categories}"
