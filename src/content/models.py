@@ -82,6 +82,7 @@ class Book(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField(blank=True, null=True)
     epub_file = models.FileField(upload_to='books/epub/', blank=True, null=True)
+    cover_image = models.ImageField(upload_to='books/covers/', blank=True, null=True)
     author = models.CharField(max_length=100)
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
