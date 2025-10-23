@@ -17,7 +17,7 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         'language': ['exact'],
         'type': ['exact'],
         'categories': ['exact'],
-        'publication_date': ['gte', 'lte', 'exact'],  # >=, <=, =
+        'publication_date': ['gte', 'lte', 'exact'],
     }
 
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
@@ -47,7 +47,7 @@ class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = BookCategorySerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
-        'parent': ['exact', 'isnull'],  # parent=ID или parent__isnull=true
+        'parent': ['exact', 'isnull'],
     }
 
 class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
