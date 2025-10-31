@@ -11,12 +11,12 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
 router = routers.DefaultRouter()
-router.register(r'Makalalar', ArticleViewSet)
-router.register(r'Kitaplar', BookViewSet)
-router.register(r'Dissertasiýalar', DissertationViewSet)
-router.register(r'Makalala-Kategoriýalar', ArticleCategoryViewSet)
-router.register(r'Kitap-Kategoriýalar', BookCategoryViewSet)
-router.register(r'Dissertasiýa-Kategoriýalar', DissertationCategoryViewSet)
+router.register(r'articles', ArticleViewSet)
+router.register(r'books', BookViewSet)
+router.register(r'dissertations', DissertationViewSet)
+router.register(r'article-categories', ArticleCategoryViewSet)
+router.register(r'book-categories', BookCategoryViewSet)
+router.register(r'dissertation-categories', DissertationCategoryViewSet)
 
 
 schema_view = get_schema_view(
