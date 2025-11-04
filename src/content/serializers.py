@@ -39,7 +39,7 @@ class ArticleSerializer(serializers.ModelSerializer):
         model = Article
         fields = ['id', 'title', 'content', 'author', 'author_workplace', 'rating', 'views',
                   'language', 'type', 'publication_date', 'source_name', 'source_url',
-                  'newspaper_or_journal', 'categories', 'bookmarks']
+                  'newspaper_or_journal', 'categories', 'bookmarks', 'image']
         read_only_fields = fields
 
     def get_bookmarks(self, obj):

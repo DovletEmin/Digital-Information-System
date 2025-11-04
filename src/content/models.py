@@ -67,6 +67,7 @@ class Article(models.Model):
     source_url = models.URLField(blank=True, null=True)
     newspaper_or_journal = models.CharField(max_length=255, blank=True, null=True)
     categories = models.ManyToManyField(ArticleCategory, related_name='articles', blank=True)
+    image = models.ImageField(upload_to='books/article_images/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} > {self.author} > {self.language} > {self.categories}"
