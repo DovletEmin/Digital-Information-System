@@ -42,6 +42,7 @@ class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
 class ArticleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ArticleCategory.objects.all().order_by('name')
     serializer_class = ArticleCategorySerializer
+    pagination_class = None
 
 class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = BookCategory.objects.all().annotate(
@@ -56,6 +57,7 @@ class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = {
         'parent': ['exact', 'isnull'],
     }
+    pagination_class = None
 
 class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DissertationCategory.objects.all().annotate(
@@ -70,3 +72,4 @@ class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = {
         'parent': ['exact', 'isnull'],
     }
+    pagination_class = None
