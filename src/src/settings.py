@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
 
+    'ckeditor',
+
     'content',
 ]
 
@@ -148,3 +150,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+CKEDITOR_CONFIGS = {
+    'default': {
+        'toolbar': 'Custom',
+        'toolbar_Custom': [
+            ['Bold', 'Italic', 'Underline'],
+            ['NumberedList', 'BulletedList', 'Blockquote'],
+            ['Link', 'Unlink'],
+            ['RemoveFormat', 'Source']
+        ],
+        'width': '100%',
+        'height': 300,
+        'removePlugins': 'uploadimage,image,flash,iframe',  
+    }
+}
