@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from ckeditor.fields import RichTextField
 
 class ArticleCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -54,7 +55,7 @@ class Article(models.Model):
     ]
 
     title = models.CharField(max_length = 255)
-    content = models.TextField()
+    content = RichTextField()
     author = models.CharField(max_length=100)
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
@@ -81,7 +82,7 @@ class Book(models.Model):
     ]
 
     title = models.CharField(max_length=255)
-    content = models.TextField(blank=True, null=True)
+    content = RichTextField(blank=True, null=True)
     epub_file = models.FileField(upload_to='books/epub/', blank=True, null=True)
     cover_image = models.ImageField(upload_to='books/covers/', blank=True, null=True)
     author = models.CharField(max_length=100)
@@ -108,7 +109,7 @@ class Dissertation(models.Model):
     ]
 
     title = models.CharField(max_length=255)
-    content = models.TextField()
+    content = RichTextField()
     author = models.CharField(max_length=100)
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
