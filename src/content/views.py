@@ -11,7 +11,7 @@ from .serializers import (
 from django.db.models import Case, When, Value, IntegerField
 
 class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Article.objects.all().order_by('id')
+    queryset = Article.objects.all().order_by('-id')
     serializer_class = ArticleSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -22,7 +22,7 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
     }
 
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Book.objects.all().order_by('id')
+    queryset = Book.objects.all().order_by('-id')
     serializer_class = BookSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -31,7 +31,7 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
     }
 
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Dissertation.objects.all().order_by('id')
+    queryset = Dissertation.objects.all().order_by('-id')
     serializer_class = DissertationSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
