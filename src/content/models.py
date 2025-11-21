@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from ckeditor.fields import RichTextField
+
 
 class ArticleCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -10,7 +13,7 @@ class ArticleCategory(models.Model):
 
     def __str__(self):
         return self.name
-    
+
 
 class BookCategory(models.Model):
     name = models.CharField(max_length=100)
@@ -20,49 +23,58 @@ class BookCategory(models.Model):
         unique_together = ('name', 'parent')
         verbose_name_plural = "Book Categories"
 
-
     def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} > {self.name}"
-        return self.name
-    
+        return f"{self.parent.name} > {self.name}" if self.parent else self.name
+
 
 class DissertationCategory(models.Model):
-    name = models.CharField(max_length = 100)
+    name = models.CharField(max_length=100)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')
 
     class Meta:
         unique_together = ('name', 'parent')
         verbose_name_plural = "Dissertation Categories"
 
-    
     def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} > {self.name}"
-        return self.name
+        return f"{self.parent.name} > {self.name}" if self.parent else self.name
+
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     
+    bookmarks_articles = models.ManyToManyField('Article', blank=True, related_name='bookmarked_by')
+    bookmarks_books = models.ManyToManyField('Book', blank=True, related_name='bookmarked_by')
+    bookmarks_dissertations = models.ManyToManyField('Dissertation', blank=True, related_name='bookmarked_by')
+
+    def __str__(self):
+        return f"Profile of {self.user.username}"
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    if hasattr(instance, 'profile'):
+        instance.profile.save()
+    else:
+        Profile.objects.create(user=instance)
+
 
 class Article(models.Model):
-    LANGUAGE_CHOICES = [
-        ('tm', 'Turkmen'),
-        ('ru', 'Russian'),
-        ('en', 'English'),
-    ]
+    LANGUAGE_CHOICES = [('tm', 'Turkmen'), ('ru', 'Russian'), ('en', 'English')]
+    TYPE_CHOICES = [('local', 'Local'), ('foreign', 'Foreign')]
 
-    TYPE_CHOICES = [
-        ('local', 'Local'),
-        ('foreign', 'Foreign'),
-    ]
-
-    title = models.CharField(max_length = 255)
+    title = models.CharField(max_length=255)
     content = RichTextField()
     author = models.CharField(max_length=100)
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
-    bookmarks = models.ManyToManyField(User, related_name='bookmarked_articles', blank=True)
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
-    type = models.CharField(max_length=7,choices=TYPE_CHOICES, default='local')
+    type = models.CharField(max_length=7, choices=TYPE_CHOICES, default='local')
     publication_date = models.DateField()
     source_name = models.CharField(max_length=255, blank=True, null=True)
     source_url = models.URLField(blank=True, null=True)
@@ -71,15 +83,11 @@ class Article(models.Model):
     image = models.ImageField(upload_to='books/article_images/', blank=True, null=True)
 
     def __str__(self):
-        return f"{self.title} > {self.author} > {self.language} > {self.categories}"
+        return f"{self.title} ({self.language})"
 
 
 class Book(models.Model):
-    LANGUAGE_CHOICES = [
-        ('tm', 'Turkmen'),
-        ('ru', 'Russian'),
-        ('en', 'English'),
-    ]
+    LANGUAGE_CHOICES = [('tm', 'Turkmen'), ('ru', 'Russian'), ('en', 'English')]
 
     title = models.CharField(max_length=255)
     content = RichTextField(blank=True, null=True)
@@ -89,12 +97,11 @@ class Book(models.Model):
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
-    bookmarks = models.ManyToManyField(User, related_name='bookmarked_books', blank=True)
     categories = models.ManyToManyField(BookCategory, related_name='books', blank=True)
 
     def __str__(self):
-        return f"{self.title} > {self.author} > {self.language} > {self.categories}"
-    
+        return f"{self.title} ({self.author})"
+
     def save(self, *args, **kwargs):
         if not self.content and not self.epub_file:
             raise ValueError("Должно быть заполнено хотя бы content или epub_file.")
@@ -102,11 +109,7 @@ class Book(models.Model):
 
 
 class Dissertation(models.Model):
-    LANGUAGE_CHOICES = [
-        ('tm', 'Turkmen'),
-        ('ru', 'Russian'),
-        ('en', 'English'),
-    ]
+    LANGUAGE_CHOICES = [('tm', 'Turkmen'), ('ru', 'Russian'), ('en', 'English')]
 
     title = models.CharField(max_length=255)
     content = RichTextField()
@@ -114,10 +117,9 @@ class Dissertation(models.Model):
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
-    bookmarks = models.ManyToManyField(User, related_name='bookmarked_dissertations', blank=True)
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
     publication_date = models.DateField()
     categories = models.ManyToManyField(DissertationCategory, related_name='dissertations', blank=True)
 
     def __str__(self):
-        return f"{self.title} > {self.author} > {self.language} > {self.categories}"
+        return f"{self.title} ({self.author})"
