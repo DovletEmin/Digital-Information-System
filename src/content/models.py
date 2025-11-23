@@ -17,10 +17,16 @@ class ArticleCategory(models.Model):
 
 class BookCategory(models.Model):
     name = models.CharField(max_length=100)
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name="subcategories")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subcategories",
+    )
 
     class Meta:
-        unique_together = ('name', 'parent')
+        unique_together = ("name", "parent")
         verbose_name_plural = "Book Categories"
 
     def __str__(self):
@@ -29,10 +35,16 @@ class BookCategory(models.Model):
 
 class DissertationCategory(models.Model):
     name = models.CharField(max_length=100)
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="subcategories",
+    )
 
     class Meta:
-        unique_together = ('name', 'parent')
+        unique_together = ("name", "parent")
         verbose_name_plural = "Dissertation Categories"
 
     def __str__(self):
@@ -40,11 +52,17 @@ class DissertationCategory(models.Model):
 
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    
-    bookmarks_articles = models.ManyToManyField('Article', blank=True, related_name='bookmarked_by')
-    bookmarks_books = models.ManyToManyField('Book', blank=True, related_name='bookmarked_by')
-    bookmarks_dissertations = models.ManyToManyField('Dissertation', blank=True, related_name='bookmarked_by')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+
+    bookmarks_articles = models.ManyToManyField(
+        "Article", blank=True, related_name="bookmarked_by"
+    )
+    bookmarks_books = models.ManyToManyField(
+        "Book", blank=True, related_name="bookmarked_by"
+    )
+    bookmarks_dissertations = models.ManyToManyField(
+        "Dissertation", blank=True, related_name="bookmarked_by"
+    )
 
     def __str__(self):
         return f"Profile of {self.user.username}"
@@ -55,17 +73,18 @@ def create_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
 
+
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'profile'):
+    if hasattr(instance, "profile"):
         instance.profile.save()
     else:
         Profile.objects.create(user=instance)
 
 
 class Article(models.Model):
-    LANGUAGE_CHOICES = [('tm', 'Turkmen'), ('ru', 'Russian'), ('en', 'English')]
-    TYPE_CHOICES = [('local', 'Local'), ('foreign', 'Foreign')]
+    LANGUAGE_CHOICES = [("tm", "Turkmen"), ("ru", "Russian"), ("en", "English")]
+    TYPE_CHOICES = [("local", "Local"), ("foreign", "Foreign")]
 
     title = models.CharField(max_length=255)
     content = RichTextField()
@@ -73,31 +92,33 @@ class Article(models.Model):
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
-    type = models.CharField(max_length=7, choices=TYPE_CHOICES, default='local')
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
+    type = models.CharField(max_length=7, choices=TYPE_CHOICES, default="local")
     publication_date = models.DateField()
     source_name = models.CharField(max_length=255, blank=True, null=True)
     source_url = models.URLField(blank=True, null=True)
     newspaper_or_journal = models.CharField(max_length=255, blank=True, null=True)
-    categories = models.ManyToManyField(ArticleCategory, related_name='articles', blank=True)
-    image = models.ImageField(upload_to='books/article_images/', blank=True, null=True)
+    categories = models.ManyToManyField(
+        ArticleCategory, related_name="articles", blank=True
+    )
+    image = models.ImageField(upload_to="books/article_images/", blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} ({self.language})"
 
 
 class Book(models.Model):
-    LANGUAGE_CHOICES = [('tm', 'Turkmen'), ('ru', 'Russian'), ('en', 'English')]
+    LANGUAGE_CHOICES = [("tm", "Turkmen"), ("ru", "Russian"), ("en", "English")]
 
     title = models.CharField(max_length=255)
     content = RichTextField(blank=True, null=True)
-    epub_file = models.FileField(upload_to='books/epub/', blank=True, null=True)
-    cover_image = models.ImageField(upload_to='books/covers/', blank=True, null=True)
+    epub_file = models.FileField(upload_to="books/epub/", blank=True, null=True)
+    cover_image = models.ImageField(upload_to="books/covers/", blank=True, null=True)
     author = models.CharField(max_length=100)
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
-    categories = models.ManyToManyField(BookCategory, related_name='books', blank=True)
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
+    categories = models.ManyToManyField(BookCategory, related_name="books", blank=True)
 
     def __str__(self):
         return f"{self.title} ({self.author})"
@@ -109,7 +130,7 @@ class Book(models.Model):
 
 
 class Dissertation(models.Model):
-    LANGUAGE_CHOICES = [('tm', 'Turkmen'), ('ru', 'Russian'), ('en', 'English')]
+    LANGUAGE_CHOICES = [("tm", "Turkmen"), ("ru", "Russian"), ("en", "English")]
 
     title = models.CharField(max_length=255)
     content = RichTextField()
@@ -117,9 +138,11 @@ class Dissertation(models.Model):
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
     views = models.IntegerField(default=0)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='tm')
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
     publication_date = models.DateField()
-    categories = models.ManyToManyField(DissertationCategory, related_name='dissertations', blank=True)
+    categories = models.ManyToManyField(
+        DissertationCategory, related_name="dissertations", blank=True
+    )
 
     def __str__(self):
         return f"{self.title} ({self.author})"

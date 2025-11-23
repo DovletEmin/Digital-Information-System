@@ -10,25 +10,33 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Case, When, Value, IntegerField, Exists, OuterRef
 
 from .models import (
-    Article, Book, Dissertation,
-    ArticleCategory, BookCategory, DissertationCategory
+    Article,
+    Book,
+    Dissertation,
+    ArticleCategory,
+    BookCategory,
+    DissertationCategory,
 )
 from .serializers import (
-    ArticleSerializer, BookSerializer, DissertationSerializer,
-    ArticleCategorySerializer, BookCategorySerializer, DissertationCategorySerializer,
-    UserSerializer
+    ArticleSerializer,
+    BookSerializer,
+    DissertationSerializer,
+    ArticleCategorySerializer,
+    BookCategorySerializer,
+    DissertationCategorySerializer,
+    UserSerializer,
 )
 
 
 class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Article.objects.all().order_by('-id')
+    queryset = Article.objects.all().order_by("-id")
     serializer_class = ArticleSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
-        'language': ['exact'],
-        'type': ['exact'],
-        'categories': ['exact'],
-        'publication_date': ['gte', 'lte', 'exact'],
+        "language": ["exact"],
+        "type": ["exact"],
+        "categories": ["exact"],
+        "publication_date": ["gte", "lte", "exact"],
     }
 
     def get_queryset(self):
@@ -37,23 +45,24 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.annotate(
                 is_bookmarked=Exists(
                     User.objects.filter(
-                        pk=self.request.user.pk,
-                        bookmarks_articles=OuterRef('pk')
+                        pk=self.request.user.pk, bookmarks_articles=OuterRef("pk")
                     )
                 )
             )
         else:
-            queryset = queryset.annotate(is_bookmarked=Value(False, output_field=IntegerField()))
+            queryset = queryset.annotate(
+                is_bookmarked=Value(False, output_field=IntegerField())
+            )
         return queryset
 
 
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Book.objects.all().order_by('-id')
+    queryset = Book.objects.all().order_by("-id")
     serializer_class = BookSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
-        'language': ['exact'],
-        'categories': ['exact'],
+        "language": ["exact"],
+        "categories": ["exact"],
     }
 
     def get_queryset(self):
@@ -62,8 +71,7 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.annotate(
                 is_bookmarked=Exists(
                     User.objects.filter(
-                        pk=self.request.user.pk,
-                        bookmarks_books=OuterRef('pk')
+                        pk=self.request.user.pk, bookmarks_books=OuterRef("pk")
                     )
                 )
             )
@@ -73,12 +81,12 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Dissertation.objects.all().order_by('-id')
+    queryset = Dissertation.objects.all().order_by("-id")
     serializer_class = DissertationSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
-        'language': ['exact'],
-        'categories': ['exact'],
+        "language": ["exact"],
+        "categories": ["exact"],
     }
 
     def get_queryset(self):
@@ -87,8 +95,7 @@ class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.annotate(
                 is_bookmarked=Exists(
                     User.objects.filter(
-                        pk=self.request.user.pk,
-                        bookmarks_dissertations=OuterRef('pk')
+                        pk=self.request.user.pk, bookmarks_dissertations=OuterRef("pk")
                     )
                 )
             )
@@ -98,36 +105,44 @@ class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ArticleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ArticleCategory.objects.all().order_by('name')
+    queryset = ArticleCategory.objects.all().order_by("name")
     serializer_class = ArticleCategorySerializer
     pagination_class = None
 
 
 class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = BookCategory.objects.all().annotate(
-        is_top_category=Case(
-            When(parent__isnull=True, then=Value(1)),
-            default=Value(0),
-            output_field=IntegerField()
+    queryset = (
+        BookCategory.objects.all()
+        .annotate(
+            is_top_category=Case(
+                When(parent__isnull=True, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            )
         )
-    ).order_by('-is_top_category', 'name')
+        .order_by("-is_top_category", "name")
+    )
     serializer_class = BookCategorySerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = {'parent': ['exact', 'isnull']}
+    filterset_fields = {"parent": ["exact", "isnull"]}
     pagination_class = None
 
 
 class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = DissertationCategory.objects.all().annotate(
-        is_top_category=Case(
-            When(parent__isnull=True, then=Value(1)),
-            default=Value(0),
-            output_field=IntegerField()
+    queryset = (
+        DissertationCategory.objects.all()
+        .annotate(
+            is_top_category=Case(
+                When(parent__isnull=True, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            )
         )
-    ).order_by('-is_top_category', 'name')
+        .order_by("-is_top_category", "name")
+    )
     serializer_class = DissertationCategorySerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = {'parent': ['exact', 'isnull']}
+    filterset_fields = {"parent": ["exact", "isnull"]}
     pagination_class = None
 
 
@@ -137,32 +152,35 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
 
 
-
 class ToggleBookmarkView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        content_type = request.data.get('type') 
+        content_type = request.data.get("type")
 
         if content_type == "article":
             model = Article
-            field_name = 'bookmarks_articles'
+            field_name = "bookmarks_articles"
         elif content_type == "book":
             model = Book
-            field_name = 'bookmarks_books'
+            field_name = "bookmarks_books"
         elif content_type == "dissertation":
             model = Dissertation
-            field_name = 'bookmarks_dissertations'
+            field_name = "bookmarks_dissertations"
         else:
-            return Response({"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             obj = model.objects.get(pk=pk)
         except model.DoesNotExist:
-            return Response({"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
-        profile = request.user.profile 
-        user_field = getattr(profile, field_name) 
+        profile = request.user.profile
+        user_field = getattr(profile, field_name)
 
         if user_field.filter(pk=pk).exists():
             user_field.remove(obj)
@@ -171,10 +189,7 @@ class ToggleBookmarkView(APIView):
             user_field.add(obj)
             added = True
 
-        return Response({
-            "added": added,
-            "is_bookmarked": added
-        })
+        return Response({"added": added, "is_bookmarked": added})
 
 
 class UserBookmarksView(APIView):
@@ -182,11 +197,21 @@ class UserBookmarksView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profile = request.user.profile  
+        profile = request.user.profile
 
         data = {
-            "articles": ArticleSerializer(profile.bookmarks_articles.all(), many=True, context={'request': request}).data,
-            "books": BookSerializer(profile.bookmarks_books.all(), many=True, context={'request': request}).data,
-            "dissertations": DissertationSerializer(profile.bookmarks_dissertations.all(), many=True, context={'request': request}).data,
+            "articles": ArticleSerializer(
+                profile.bookmarks_articles.all(),
+                many=True,
+                context={"request": request},
+            ).data,
+            "books": BookSerializer(
+                profile.bookmarks_books.all(), many=True, context={"request": request}
+            ).data,
+            "dissertations": DissertationSerializer(
+                profile.bookmarks_dissertations.all(),
+                many=True,
+                context={"request": request},
+            ).data,
         }
         return Response(data)
