@@ -1,5 +1,3 @@
-# content/management/commands/reindex_search.py
-
 from django.core.management.base import BaseCommand
 from elasticsearch import Elasticsearch
 from django.db.models import FileField, ImageField, DateField
