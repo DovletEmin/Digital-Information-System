@@ -79,7 +79,9 @@ class APITest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["title"], "Test Article")
-        self.assertEqual(response.data["results"][0]["categories"][0]["name"], "Science")
+        self.assertEqual(
+            response.data["results"][0]["categories"][0]["name"], "Science"
+        )
 
     def test_get_article_detail(self):
         url = reverse("article-detail", kwargs={"pk": self.article.id})
@@ -107,17 +109,25 @@ class APITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["categories"][0]["name"], "Science")
+        self.assertEqual(
+            response.data["results"][0]["categories"][0]["name"], "Science"
+        )
 
     def test_article_filter_by_date_range(self):
-        url = reverse("article-list") + "?publication_date__gte=2023-01-01&publication_date__lte=2023-12-31"
+        url = (
+            reverse("article-list")
+            + "?publication_date__gte=2023-01-01&publication_date__lte=2023-12-31"
+        )
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["publication_date"], "15.01.2023")
 
     def test_article_combined_filter(self):
-        url = reverse("article-list") + f"?language=tm&type=local&categories={self.article_category.id}&publication_date__gte=2023-01-01"
+        url = (
+            reverse("article-list")
+            + f"?language=tm&type=local&categories={self.article_category.id}&publication_date__gte=2023-01-01"
+        )
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
@@ -130,7 +140,9 @@ class APITest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["title"], "Test Book")
-        self.assertEqual(response.data["results"][0]["categories"][0]["name"], "Biology")
+        self.assertEqual(
+            response.data["results"][0]["categories"][0]["name"], "Biology"
+        )
 
     def test_get_book_detail(self):
         url = reverse("book-detail", kwargs={"pk": self.book.id})
@@ -151,7 +163,9 @@ class APITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["categories"][0]["name"], "Biology")
+        self.assertEqual(
+            response.data["results"][0]["categories"][0]["name"], "Biology"
+        )
 
     def test_get_dissertation_list(self):
         url = reverse("dissertation-list")
@@ -159,7 +173,9 @@ class APITest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["title"], "Test Dissertation")
-        self.assertEqual(response.data["results"][0]["categories"][0]["name"], "Physics")
+        self.assertEqual(
+            response.data["results"][0]["categories"][0]["name"], "Physics"
+        )
 
     def test_get_dissertation_detail(self):
         url = reverse("dissertation-detail", kwargs={"pk": self.dissertation.id})
@@ -176,11 +192,16 @@ class APITest(APITestCase):
         self.assertEqual(response.data["results"][0]["language"], "en")
 
     def test_dissertation_filter_by_category(self):
-        url = reverse("dissertation-list") + f"?categories={self.dissertation_subcategory.id}"
+        url = (
+            reverse("dissertation-list")
+            + f"?categories={self.dissertation_subcategory.id}"
+        )
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["categories"][0]["name"], "Physics")
+        self.assertEqual(
+            response.data["results"][0]["categories"][0]["name"], "Physics"
+        )
 
     def test_get_article_category_list(self):
         url = reverse("articlecategory-list")

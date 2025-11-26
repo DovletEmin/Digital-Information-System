@@ -8,7 +8,7 @@ connections.create_connection(hosts=["http://127.0.0.1:9200"], timeout=30)
 class CategoryDoc(InnerDoc):
     id = Integer()
     name = Text()
-    parent = Integer()  
+    parent = Integer()
 
 
 # ======================= СТАТЬИ =======================
@@ -20,8 +20,8 @@ class ArticleDoc(Document):
     source_name = Text()
     source_url = Keyword()
     newspaper_or_journal = Text()
-    type = Keyword()  
-    image = Keyword()  
+    type = Keyword()
+    image = Keyword()
 
     language = Keyword()
     publication_date = Date()

@@ -272,25 +272,37 @@ class ContentSearchView(APIView):
         if request.query_params.get("author"):
             filters.append({"term": {"author.keyword": request.query_params["author"]}})
         if request.query_params.get("publication_date"):
-            filters.append({"term": {"publication_date": request.query_params["publication_date"]}})
-        if request.query_params.get('category_name'):
-            filters.append({
-                "nested": {
-                    "path": "categories",
-                    "query": {
-                        "match": {"categories.name": request.query_params['category_name']}
+            filters.append(
+                {"term": {"publication_date": request.query_params["publication_date"]}}
+            )
+        if request.query_params.get("category_name"):
+            filters.append(
+                {
+                    "nested": {
+                        "path": "categories",
+                        "query": {
+                            "match": {
+                                "categories.name": request.query_params["category_name"]
+                            }
+                        },
                     }
                 }
-            })
-        if request.query_params.get('category_id'):
-            filters.append({
-                "nested": {
-                    "path": "categories",
-                    "query": {
-                        "term": {"categories.id": int(request.query_params['category_id'])}
+            )
+        if request.query_params.get("category_id"):
+            filters.append(
+                {
+                    "nested": {
+                        "path": "categories",
+                        "query": {
+                            "term": {
+                                "categories.id": int(
+                                    request.query_params["category_id"]
+                                )
+                            }
+                        },
                     }
                 }
-            })
+            )
         if request.query_params.get("publication_date__gte"):
             filters.append(
                 {
