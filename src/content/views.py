@@ -1,5 +1,3 @@
-# content/views.py
-
 from django.contrib.auth.models import User
 from rest_framework import viewsets, generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -8,7 +6,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Case, When, Value, IntegerField, Exists, OuterRef
+from elasticsearch import Elasticsearch
 
+from django.conf import settings
+from datetime import datetime
 from .models import (
     Article,
     Book,
@@ -215,3 +216,181 @@ class UserBookmarksView(APIView):
             ).data,
         }
         return Response(data)
+
+
+class ContentSearchView(APIView):
+    def get(self, request):
+        q = request.query_params.get("q", "").strip()
+        page = int(request.query_params.get("page", 1))
+        page_size = getattr(settings, "REST_FRAMEWORK", {}).get("PAGE_SIZE")
+        from_ = (page - 1) * page_size
+
+        client = Elasticsearch(["http://127.0.0.1:9200"])
+
+        body = {
+            "from": from_,
+            "size": page_size,
+            "query": {"bool": {"must": []}},
+            "highlight": {
+                "fields": {
+                    "title": {"fragment_size": 150},
+                    "content": {"fragment_size": 200},
+                }
+            },
+        }
+
+        # Поиск
+        if q:
+            body["query"]["bool"]["must"].append(
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": [
+                            "title^5",
+                            "content^2",
+                            "author^3",
+                            "author_workplace",
+                            "source_name",
+                        ],
+                        "info_type": "best_fields",
+                    }
+                }
+            )
+        else:
+            body["query"]["bool"]["must"].append({"match_all": {}})
+
+        # Фильтры
+        filters = []
+        if request.query_params.get("info_type"):
+            filters.append(
+                {"term": {"_index": request.query_params["info_type"] + "s"}}
+            )
+        if request.query_params.get("language"):
+            filters.append({"term": {"language": request.query_params["language"]}})
+        if request.query_params.get("type"):
+            filters.append({"term": {"type": request.query_params["type"]}})
+        if request.query_params.get("author"):
+            filters.append({"term": {"author.keyword": request.query_params["author"]}})
+        if request.query_params.get("publication_date"):
+            filters.append({"term": {"publication_date": request.query_params["publication_date"]}})
+        if request.query_params.get('category_name'):
+            filters.append({
+                "nested": {
+                    "path": "categories",
+                    "query": {
+                        "match": {"categories.name": request.query_params['category_name']}
+                    }
+                }
+            })
+        if request.query_params.get('category_id'):
+            filters.append({
+                "nested": {
+                    "path": "categories",
+                    "query": {
+                        "term": {"categories.id": int(request.query_params['category_id'])}
+                    }
+                }
+            })
+        if request.query_params.get("publication_date__gte"):
+            filters.append(
+                {
+                    "range": {
+                        "publication_date": {
+                            "gte": request.query_params["publication_date__gte"]
+                        }
+                    }
+                }
+            )
+        if request.query_params.get("publication_date__lte"):
+            filters.append(
+                {
+                    "range": {
+                        "publication_date": {
+                            "lte": request.query_params["publication_date__lte"]
+                        }
+                    }
+                }
+            )
+
+        if filters:
+            body["query"]["bool"]["filter"] = filters
+
+        # Выполняем поиск по всем индексам
+        response = client.search(index="articles,books,dissertations", body=body)
+
+        results = []
+        for hit in response["hits"]["hits"]:
+            source = hit["_source"]
+            index_type = hit["_index"].rstrip("s")
+
+            # Общие поля
+            base = {
+                "id": int(hit["_id"]),
+                "info_type": index_type,
+                "title": source.get("title", "Без названия"),
+                "author": source.get("author", "Автор не указан"),
+                "language": source.get("language", ""),
+                "rating": source.get("rating", 0),
+                "views": source.get("views", 0),
+                "score": hit.get("_score", 0),
+            }
+
+            # Специфичные поля
+            if index_type == "article":
+                base.update(
+                    {
+                        "content": source.get("content", ""),
+                        "author_workplace": source.get("author_workplace", ""),
+                        "type": source.get("type", ""),
+                        "publication_date": (
+                            datetime.strptime(
+                                source["publication_date"], "%Y-%m-%d"
+                            ).strftime("%d.%m.%Y")
+                            if source.get("publication_date")
+                            else None
+                        ),
+                        "source_name": source.get("source_name", ""),
+                        "source_url": source.get("source_url", ""),
+                        "newspaper_or_journal": source.get("newspaper_or_journal", ""),
+                        "image": source.get("image", ""),
+                        "categories": source.get("categories", []),
+                    }
+                )
+            elif index_type == "book":
+                base.update(
+                    {
+                        "content": source.get("content", ""),
+                        "epub_file": source.get("epub_file", ""),
+                        "cover_image": source.get("cover_image", ""),
+                        "categories": source.get("categories", []),
+                    }
+                )
+            elif index_type == "dissertation":
+                base.update(
+                    {
+                        "content": source.get("content", ""),
+                        "author_workplace": source.get("author_workplace", ""),
+                        "publication_date": (
+                            datetime.strptime(
+                                source["publication_date"], "%Y-%m-%d"
+                            ).strftime("%d.%m.%Y")
+                            if source.get("publication_date")
+                            else None
+                        ),
+                        "categories": source.get("categories", []),
+                    }
+                )
+
+            if "highlight" in hit:
+                base["highlight"] = hit["highlight"]
+
+            results.append(base)
+
+        return Response(
+            {
+                "count": response["hits"]["total"]["value"],
+                "results": results,
+                "page": page,
+                "page_size": page_size,
+            }
+        )
