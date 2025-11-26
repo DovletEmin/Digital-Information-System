@@ -225,7 +225,8 @@ class ContentSearchView(APIView):
         page_size = getattr(settings, "REST_FRAMEWORK", {}).get("PAGE_SIZE")
         from_ = (page - 1) * page_size
 
-        client = Elasticsearch(["http://127.0.0.1:9200"])
+        es_url = settings.ELASTICSEARCH_DSL["default"]["hosts"]
+        client = Elasticsearch(es_url)
 
         body = {
             "from": from_,

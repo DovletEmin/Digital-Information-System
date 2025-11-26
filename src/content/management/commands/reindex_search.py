@@ -1,7 +1,9 @@
 from django.core.management.base import BaseCommand
 from elasticsearch import Elasticsearch
+
 from django.db.models import FileField, ImageField, DateField
 from content.models import Article, Book, Dissertation
+from django.conf import settings
 
 
 class Command(BaseCommand):
@@ -10,7 +12,8 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        es = Elasticsearch(["http://127.0.0.1:9200"])
+        es_url = settings.ELASTICSEARCH_DSL["default"]["hosts"]
+        es = Elasticsearch(es_url)
 
         indices = {
             "articles": Article,
