@@ -20,6 +20,7 @@ from content.views import (
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from content.authentication.views import LogoutView
 
 router = routers.DefaultRouter()
 router.register(r"articles", ArticleViewSet)
@@ -44,6 +45,7 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", TokenObtainPairView.as_view(), name="token_obtain"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("auth/logout", LogoutView.as_view(), name="logout"),
     # Закладки
     path(
         "bookmarks/toggle/<int:pk>/",
