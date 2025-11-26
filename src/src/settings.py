@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,6 +84,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "src.wsgi.application"
 
+DATE_FORMAT = "d-m-y"
+DATETIME_FORMAT = "d-m-y H:i"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "content.authentication.JWTAuthenticationNoBearerRequired",
@@ -92,14 +96,14 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 10,
+    "DATETIME_FORMAT": "%d.%m.%Y",
+    "DATE_FORMAT": "%d.%m.%Y",
+    "PAGE_SIZE": 8,
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
 }
 
-
-from datetime import timedelta
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=6),
@@ -188,4 +192,10 @@ CKEDITOR_CONFIGS = {
         "height": 300,
         "removePlugins": "uploadimage,image,flash,iframe",
     }
+}
+
+ELASTICSEARCH_DSL = {
+    "default": {
+        "hosts": "http://127.0.0.1:9200",
+    },
 }
