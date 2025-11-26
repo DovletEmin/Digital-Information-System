@@ -22,12 +22,10 @@ class Command(BaseCommand):
         }
 
         for index_name, Model in indices.items():
-            # Удаляем старый индекс
             if es.indices.exists(index=index_name):
                 es.indices.delete(index=index_name)
                 self.stdout.write(f"Удалён индекс: {index_name}")
 
-            # Создаём новый индекс с мэппингом
             es.indices.create(
                 index=index_name,
                 body={
@@ -69,14 +67,12 @@ class Command(BaseCommand):
                     data = {}
 
                     for field in obj._meta.get_fields():
-                        # Пропускаем M2M и обратные связи
                         if field.many_to_many or field.one_to_many:
                             continue
 
                         field_name = field.name
                         value = getattr(obj, field_name, None)
 
-                        # Файловые поля: НЕ трогаем .url, пока не убедимся, что есть имя
                         if isinstance(field, (FileField, ImageField)):
                             if value and getattr(value, "name", None):
                                 data[field_name] = value.url
@@ -89,11 +85,9 @@ class Command(BaseCommand):
                                 value.isoformat() if value is not None else None
                             )
 
-                        # Остальные поля как есть (FK попадёт как объект; при необходимости поменяй на id)
                         else:
                             data[field_name] = value
 
-                    # M2M категории (явно формируем список словарей)
                     data["categories"] = [
                         {
                             "id": c.id,
@@ -105,7 +99,6 @@ class Command(BaseCommand):
                         for c in obj.categories.all()
                     ]
 
-                    # Индексация в Elasticsearch
                     es.index(index=index_name, id=obj.id, body=data)
                     count += 1
 
