@@ -20,6 +20,7 @@ from content.views import (
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from content.views import ContentSearchView
 
 router = routers.DefaultRouter()
 router.register(r"articles", ArticleViewSet)
@@ -58,6 +59,7 @@ urlpatterns = [
         ),
         name="my-bookmarks",
     ),
+    path("search/", ContentSearchView.as_view(), name="content-search"),
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger"),
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),
 ]
