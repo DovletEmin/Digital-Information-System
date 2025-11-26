@@ -146,6 +146,7 @@ class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 # ============Registraion============
 
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
@@ -153,6 +154,7 @@ class RegisterView(generics.CreateAPIView):
 
 
 # ============Bookmark_Add============
+
 
 class ToggleBookmarkView(APIView):
     permission_classes = [IsAuthenticated]
@@ -192,7 +194,6 @@ class ToggleBookmarkView(APIView):
             added = True
 
         return Response({"added": added, "is_bookmarked": added})
-
 
 
 # ============Bookmarks============

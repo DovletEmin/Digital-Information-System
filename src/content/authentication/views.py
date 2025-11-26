@@ -13,14 +13,13 @@ class LogoutView(APIView):
 
             if refresh_token:
                 from rest_framework_simplejwt.tokens import RefreshToken
+
                 token = RefreshToken(refresh_token)
                 token.blacklist()
 
-            return Response({
-                "detail": "Logged Out"
-            }, status=status.HTTP_200_OK)
-        
+            return Response({"detail": "Logged Out"}, status=status.HTTP_200_OK)
+
         except Exception as e:
-            return Response({
-                "detail": {f"{e} error occured"}
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": {f"{e} error occured"}}, status=status.HTTP_400_BAD_REQUEST
+            )
