@@ -45,7 +45,7 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", TokenObtainPairView.as_view(), name="token_obtain"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("auth/logout", LogoutView.as_view(), name="logout"),
+    path("auth/logout/", LogoutView.as_view(), name="logout"),
     # Закладки
     path(
         "bookmarks/toggle/<int:pk>/",
