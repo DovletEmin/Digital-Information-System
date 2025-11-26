@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "ckeditor",
     "rest_framework_simplejwt",
+    'rest_framework_simplejwt.token_blacklist',
     "content",
 ]
 
@@ -85,7 +86,7 @@ WSGI_APPLICATION = "src.wsgi.application"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "content.authentication.JWTAuthenticationNoBearerRequired",
+        "content.authentication.authentication.JWTAuthenticationNoBearerRequired",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -102,8 +103,13 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=6),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,       
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 SWAGGER_SETTINGS = {
