@@ -1,5 +1,3 @@
-# content/views.py
-
 from django.contrib.auth.models import User
 from rest_framework import viewsets, generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -146,11 +144,15 @@ class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
 
+# ============Registraion============
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = UserSerializer
 
+
+# ============Bookmark_Add============
 
 class ToggleBookmarkView(APIView):
     permission_classes = [IsAuthenticated]
@@ -192,6 +194,8 @@ class ToggleBookmarkView(APIView):
         return Response({"added": added, "is_bookmarked": added})
 
 
+
+# ============Bookmarks============
 class UserBookmarksView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
