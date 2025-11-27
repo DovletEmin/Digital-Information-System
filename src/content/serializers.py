@@ -52,7 +52,8 @@ class ArticleSerializer(serializers.ModelSerializer):
             "content",
             "author",
             "author_workplace",
-            "rating",
+            "average_rating",
+            "rating_count",
             "views",
             "language",
             "type",
@@ -69,7 +70,7 @@ class ArticleSerializer(serializers.ModelSerializer):
     def get_is_bookmarked(self, obj):
         user = self.context["request"].user
         if user.is_authenticated:
-            return user.profile.bookmarks_articles.filter(pk=obj.id).exists()
+            return user.profile.bookmarked_articles.filter(id=obj.id).exists()
         return False
 
 
@@ -86,7 +87,8 @@ class BookSerializer(serializers.ModelSerializer):
             "epub_file",
             "cover_image",
             "author",
-            "rating",
+            "average_rating",
+            "rating_count",
             "views",
             "language",
             "categories",
@@ -97,7 +99,7 @@ class BookSerializer(serializers.ModelSerializer):
     def get_is_bookmarked(self, obj):
         user = self.context["request"].user
         if user.is_authenticated:
-            return user.profile.bookmarks_books.filter(pk=obj.id).exists()
+            return user.profile.bookmarked_books.filter(id=obj.id).exists()
         return False
 
 
@@ -113,7 +115,8 @@ class DissertationSerializer(serializers.ModelSerializer):
             "content",
             "author",
             "author_workplace",
-            "rating",
+            "average_rating",
+            "rating_count",
             "views",
             "language",
             "publication_date",
@@ -125,7 +128,7 @@ class DissertationSerializer(serializers.ModelSerializer):
     def get_is_bookmarked(self, obj):
         user = self.context["request"].user
         if user.is_authenticated:
-            return user.profile.bookmarks_dissertations.filter(pk=obj.id).exists()
+            return user.profile.bookmarked_dissertations.filter(id=obj.id).exists()
         return False
 
 
