@@ -16,11 +16,13 @@ from content.views import (
     RegisterView,
     ToggleBookmarkView,
     UserBookmarksView,
+    RateContentView,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from content.views import ContentSearchView
+from content.authentication.views import LogoutView
 
 router = routers.DefaultRouter()
 router.register(r"articles", ArticleViewSet)
@@ -34,7 +36,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="SMU API",
         default_version="v1",
-        description="API для Sanly Maglumat Ulgamy",
+        description="API for Sanly Maglumat Ulgamy",
     ),
     public=True,
 )
@@ -45,6 +47,7 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", TokenObtainPairView.as_view(), name="token_obtain"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("auth/logout/", LogoutView.as_view(), name="logout"),
     # Закладки
     path(
         "bookmarks/toggle/<int:pk>/",
@@ -60,6 +63,7 @@ urlpatterns = [
         name="my-bookmarks",
     ),
     path("search/", ContentSearchView.as_view(), name="content-search"),
+    path("rate/", RateContentView.as_view(), name="rate-content"),
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger"),
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),
 ]
