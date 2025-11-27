@@ -16,6 +16,7 @@ from content.views import (
     RegisterView,
     ToggleBookmarkView,
     UserBookmarksView,
+    RateContentView,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_yasg.views import get_schema_view
@@ -34,7 +35,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="SMU API",
         default_version="v1",
-        description="API для Sanly Maglumat Ulgamy",
+        description="API for Sanly Maglumat Ulgamy",
     ),
     public=True,
 )
@@ -60,6 +61,7 @@ urlpatterns = [
         ),
         name="my-bookmarks",
     ),
+    path("rate/", RateContentView.as_view(), name="rate-content"),
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger"),
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),
 ]
