@@ -3,8 +3,10 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from ckeditor.fields import RichTextField
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
+# =============Categories=============
 class ArticleCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -51,16 +53,17 @@ class DissertationCategory(models.Model):
         return f"{self.parent.name} > {self.name}" if self.parent else self.name
 
 
+# =============User_Profile=============
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
 
-    bookmarks_articles = models.ManyToManyField(
+    bookmarked_articles = models.ManyToManyField(
         "Article", blank=True, related_name="bookmarked_by"
     )
-    bookmarks_books = models.ManyToManyField(
+    bookmarked_books = models.ManyToManyField(
         "Book", blank=True, related_name="bookmarked_by"
     )
-    bookmarks_dissertations = models.ManyToManyField(
+    bookmarked_dissertations = models.ManyToManyField(
         "Dissertation", blank=True, related_name="bookmarked_by"
     )
 
@@ -82,6 +85,7 @@ def save_user_profile(sender, instance, **kwargs):
         Profile.objects.create(user=instance)
 
 
+# =============Content_Models=============
 class Article(models.Model):
     LANGUAGE_CHOICES = [("tm", "Turkmen"), ("ru", "Russian"), ("en", "English")]
     TYPE_CHOICES = [("local", "Local"), ("foreign", "Foreign")]
@@ -91,6 +95,8 @@ class Article(models.Model):
     author = models.CharField(max_length=100)
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
+    average_rating = models.FloatField(default=0.0)
+    rating_count = models.PositiveIntegerField(default=0)
     views = models.IntegerField(default=0)
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
     type = models.CharField(max_length=7, choices=TYPE_CHOICES, default="local")
@@ -116,6 +122,8 @@ class Book(models.Model):
     cover_image = models.ImageField(upload_to="books/covers/", blank=True, null=True)
     author = models.CharField(max_length=100)
     rating = models.FloatField(default=0.0)
+    average_rating = models.FloatField(default=0.0)
+    rating_count = models.PositiveIntegerField(default=0)
     views = models.IntegerField(default=0)
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
     categories = models.ManyToManyField(BookCategory, related_name="books", blank=True)
@@ -137,6 +145,8 @@ class Dissertation(models.Model):
     author = models.CharField(max_length=100)
     author_workplace = models.CharField(max_length=255, blank=True, null=True)
     rating = models.FloatField(default=0.0)
+    average_rating = models.FloatField(default=0.0)
+    rating_count = models.PositiveIntegerField(default=0)
     views = models.IntegerField(default=0)
     language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
     publication_date = models.DateField()
@@ -146,3 +156,22 @@ class Dissertation(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.author})"
+
+
+# =============Rating=============
+class ContentRating(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content_type = models.CharField(max_length=20)
+    content_id = models.PositiveIntegerField()
+    rating = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "content_type", "content_id")
+
+    def __str__(self):
+        return (
+            f"{self.user} -> {self.content_id} {self.content_id}: {self.rating} stars"
+        )
