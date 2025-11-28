@@ -21,6 +21,7 @@ from django.db.models import Avg
 
 from django.conf import settings
 from datetime import datetime
+import logging
 from .models import (
     Article,
     Book,
@@ -57,7 +58,6 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
 
         if self.request.user.is_authenticated:
-            # Проверяем, есть ли статья в профиле пользователя
             subquery = self.request.user.profile.bookmarked_articles.filter(
                 pk=OuterRef("pk")
             )
@@ -242,92 +242,90 @@ class UserBookmarksView(APIView):
         return Response(data)
 
 
+logger = logging.getLogger(__name__)
+
+
 class ContentSearchView(APIView):
     def get(self, request):
         q = request.query_params.get("q", "").strip()
-        page = int(request.query_params.get("page", 1))
-        page_size = getattr(settings, "REST_FRAMEWORK", {}).get("PAGE_SIZE")
+        page = max(int(request.query_params.get("page", 1)), 1)
+        page_size = settings.REST_FRAMEWORK["PAGE_SIZE"]
         from_ = (page - 1) * page_size
 
+        # Подключение к Elasticsearch
         es_url = settings.ELASTICSEARCH_DSL["default"]["hosts"]
-        client = Elasticsearch(es_url)
+        client = Elasticsearch(es_url, timeout=30)
 
+        if not client.ping():
+            return Response({"error": "Elasticsearch недоступен"}, status=503)
+
+        # Базовый запрос
         body = {
             "from": from_,
             "size": page_size,
-            "query": {"bool": {"must": []}},
+            "query": {"bool": {"must": [], "filter": []}},
             "highlight": {
+                "pre_tags": ["<b class='highlight'>"],
+                "post_tags": ["</b>"],
                 "fields": {
-                    "title": {"fragment_size": 150},
-                    "content": {"fragment_size": 200},
-                }
+                    "title": {"fragment_size": 150, "number_of_fragments": 1},
+                    "content": {"fragment_size": 200, "number_of_fragments": 2},
+                },
             },
+            "sort": [{"_score": {"order": "desc"}}],
         }
 
-        # Поиск
+        # Поисковый запрос
         if q:
             body["query"]["bool"]["must"].append(
                 {
                     "multi_match": {
                         "query": q,
                         "fields": [
-                            "title^5",
-                            "content^2",
-                            "author^3",
-                            "author_workplace",
-                            "source_name",
+                            "title^10",
+                            "content^3",
+                            "author^5",
+                            "author_workplace^2",
+                            "source_name^2",
+                            "newspaper_or_journal^2",
                         ],
-                        "info_type": "best_fields",
+                        "type": "best_fields",
+                        "fuzziness": "AUTO",
                     }
                 }
             )
         else:
             body["query"]["bool"]["must"].append({"match_all": {}})
 
-        # Фильтры
+        # === ФИЛЬТРЫ ===
         filters = []
-        if request.query_params.get("info_type"):
-            filters.append(
-                {"term": {"_index": request.query_params["info_type"] + "s"}}
-            )
+
+        # Тип контента: article, book, dissertation
+        info_type = request.query_params.get("info_type")
+        if info_type in ["article", "book", "dissertation"]:
+            filters.append({"term": {"_index": f"{info_type}s"}})
+
+        # Язык
         if request.query_params.get("language"):
-            filters.append({"term": {"language": request.query_params["language"]}})
+            filters.append(
+                {"term": {"language.keyword": request.query_params["language"]}}
+            )
+
+        # Только для статей
         if request.query_params.get("type"):
-            filters.append({"term": {"type": request.query_params["type"]}})
+            filters.append({"term": {"type.keyword": request.query_params["type"]}})
+
+        # Автор (точное совпадение)
         if request.query_params.get("author"):
             filters.append({"term": {"author.keyword": request.query_params["author"]}})
+
+        # Дата публикации (точная)
         if request.query_params.get("publication_date"):
             filters.append(
                 {"term": {"publication_date": request.query_params["publication_date"]}}
             )
-        if request.query_params.get("category_name"):
-            filters.append(
-                {
-                    "nested": {
-                        "path": "categories",
-                        "query": {
-                            "match": {
-                                "categories.name": request.query_params["category_name"]
-                            }
-                        },
-                    }
-                }
-            )
-        if request.query_params.get("category_id"):
-            filters.append(
-                {
-                    "nested": {
-                        "path": "categories",
-                        "query": {
-                            "term": {
-                                "categories.id": int(
-                                    request.query_params["category_id"]
-                                )
-                            }
-                        },
-                    }
-                }
-            )
+
+        # Диапазон дат
         if request.query_params.get("publication_date__gte"):
             filters.append(
                 {
@@ -349,88 +347,125 @@ class ContentSearchView(APIView):
                 }
             )
 
+        # Категории
+        if request.query_params.get("category_id"):
+            filters.append(
+                {
+                    "nested": {
+                        "path": "categories",
+                        "query": {
+                            "term": {
+                                "categories.id": int(
+                                    request.query_params["category_id"]
+                                )
+                            }
+                        },
+                    }
+                }
+            )
+        if request.query_params.get("category_name"):
+            filters.append(
+                {
+                    "nested": {
+                        "path": "categories",
+                        "query": {
+                            "match": {
+                                "categories.name": request.query_params["category_name"]
+                            }
+                        },
+                    }
+                }
+            )
+
         if filters:
             body["query"]["bool"]["filter"] = filters
 
-        # Выполняем поиск по всем индексам
-        response = client.search(index="articles,books,dissertations", body=body)
+        if not q and not info_type:
+            body["sort"].insert(0, {"average_rating": {"order": "desc"}})
+            body["sort"].append({"views": {"order": "desc"}})
+
+        try:
+            response = client.search(index="articles,books,dissertations", body=body)
+        except Exception as e:
+            logger.error(f"Elasticsearch error: {e}")
+            return Response({"error": "Ошибка поиска"}, status=500)
 
         results = []
         for hit in response["hits"]["hits"]:
             source = hit["_source"]
-            index_type = hit["_index"].rstrip("s")
+            index_name = hit["_index"]
+            content_type = index_name.rstrip("s")
 
-            # Общие поля
             base = {
                 "id": int(hit["_id"]),
-                "info_type": index_type,
+                "content_type": content_type,
                 "title": source.get("title", "Без названия"),
-                "author": source.get("author", "Автор не указан"),
-                "language": source.get("language", ""),
-                "rating": source.get("rating", 0),
+                "author": source.get("author", "Неизвестен"),
+                "language": source.get("language", "tm"),
+                "average_rating": round(float(source.get("average_rating", 0)), 2),
+                "rating_count": source.get("rating_count", 0),
                 "views": source.get("views", 0),
                 "score": hit.get("_score", 0),
+                "highlight": hit.get("highlight", {}),
             }
 
-            # Специфичные поля
-            if index_type == "article":
+            # Тип-специфичные поля
+            if content_type == "article":
                 base.update(
                     {
-                        "content": source.get("content", ""),
-                        "author_workplace": source.get("author_workplace", ""),
-                        "type": source.get("type", ""),
-                        "publication_date": (
-                            datetime.strptime(
-                                source["publication_date"], "%Y-%m-%d"
-                            ).strftime("%d.%m.%Y")
-                            if source.get("publication_date")
-                            else None
+                        "author_workplace": source.get("author_workplace"),
+                        "type": source.get("type"),
+                        "publication_date": self._format_date(
+                            source.get("publication_date")
                         ),
-                        "source_name": source.get("source_name", ""),
-                        "source_url": source.get("source_url", ""),
-                        "newspaper_or_journal": source.get("newspaper_or_journal", ""),
-                        "image": source.get("image", ""),
-                        "categories": source.get("categories", []),
+                        "source_name": source.get("source_name"),
+                        "source_url": source.get("source_url"),
+                        "newspaper_or_journal": source.get("newspaper_or_journal"),
+                        "image": source.get("image"),
                     }
                 )
-            elif index_type == "book":
+            elif content_type == "book":
                 base.update(
                     {
-                        "content": source.get("content", ""),
-                        "epub_file": source.get("epub_file", ""),
-                        "cover_image": source.get("cover_image", ""),
-                        "categories": source.get("categories", []),
+                        "epub_file": source.get("epub_file"),
+                        "cover_image": source.get("cover_image"),
                     }
                 )
-            elif index_type == "dissertation":
+            elif content_type == "dissertation":
                 base.update(
                     {
-                        "content": source.get("content", ""),
-                        "author_workplace": source.get("author_workplace", ""),
-                        "publication_date": (
-                            datetime.strptime(
-                                source["publication_date"], "%Y-%m-%d"
-                            ).strftime("%d.%m.%Y")
-                            if source.get("publication_date")
-                            else None
+                        "author_workplace": source.get("author_workplace"),
+                        "publication_date": self._format_date(
+                            source.get("publication_date")
                         ),
-                        "categories": source.get("categories", []),
                     }
                 )
 
-            if "highlight" in hit:
-                base["highlight"] = hit["highlight"]
+            # Категории всегда
+            base["categories"] = source.get("categories", [])
 
             results.append(base)
 
         return Response(
             {
                 "count": response["hits"]["total"]["value"],
-                "results": results,
                 "page": page,
                 "page_size": page_size,
+                "has_next": len(results) == page_size,
+                "results": results,
+                "query": q,
             }
         )
+
+    def _format_date(self, date_str):
+        if not date_str:
+            return None
+        try:
+            return datetime.strptime(date_str.split("T")[0], "%Y-%m-%d").strftime(
+                "%d.%m.%Y"
+            )
+        except Exception:
+            return date_str.split("T")[0]
 
 
 # ============Ratings============
