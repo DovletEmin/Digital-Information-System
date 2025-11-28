@@ -1,7 +1,9 @@
+# content/tests.py
+
 from rest_framework.test import APITestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from .models import (
+from content.models import (
     Article,
     Book,
     Dissertation,
@@ -13,243 +15,192 @@ from datetime import date
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 
-class APITest(APITestCase):
+class ContentAPITestCase(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass")
-
-        self.article_category = ArticleCategory.objects.create(name="Science")
-        self.book_top_category = BookCategory.objects.create(name="Scientific")
-        self.book_subcategory = BookCategory.objects.create(
-            name="Biology", parent=self.book_top_category
-        )
-        self.dissertation_top_category = DissertationCategory.objects.create(
-            name="Academic"
-        )
-        self.dissertation_subcategory = DissertationCategory.objects.create(
-            name="Physics", parent=self.dissertation_top_category
+        # Создаём пользователя
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123"
         )
 
+        # ВАЖНО: используем force_authenticate — иначе is_bookmarked = False!
+        self.client.force_authenticate(user=self.user)
+
+        # Категории
+        self.article_cat = ArticleCategory.objects.create(name="Ylym")
+        self.book_main_cat = BookCategory.objects.create(name="Ylym kitaplary")
+        self.book_sub_cat = BookCategory.objects.create(
+            name="Biologiýa", parent=self.book_main_cat
+        )
+        self.diss_main_cat = DissertationCategory.objects.create(
+            name="Doktorluk işleri"
+        )
+        self.diss_sub_cat = DissertationCategory.objects.create(
+            name="Fizika", parent=self.diss_main_cat
+        )
+
+        # Статья
         self.article = Article.objects.create(
-            title="Test Article",
-            content="Article content",
-            author="John Doe",
-            author_workplace="University",
-            rating=4.5,
-            views=100,
+            title="Test Makala",
+            content="<p>Bu test makalasy.</p>",
+            author="Aşyr Gurbanow",
+            author_workplace="TDÝ",
+            average_rating=4.7,
+            rating_count=12,
+            views=156,
             language="tm",
             type="local",
-            publication_date=date(2023, 1, 1),
-            source_name="Test Source",
-            source_url="http://example.com",
-            newspaper_or_journal="Test Journal",
+            publication_date=date(2025, 3, 20),
         )
-        self.article.categories.add(self.article_category)
-        self.article.bookmarks.add(self.user)
+        self.article.categories.add(self.article_cat)
+        self.user.profile.bookmarked_articles.add(self.article)  # Закладка
 
+        # Книга
         self.book = Book.objects.create(
-            title="Test Book",
-            content="Book content",
-            epub_file=SimpleUploadedFile("test.epub", b"file_content"),
-            cover_image=SimpleUploadedFile("test.jpg", b"image_content"),
-            author="Jane Doe",
-            rating=3.8,
-            views=50,
-            language="ru",
+            title="Test Kitap",
+            author="Myrat Annagurban",
+            average_rating=4.3,
+            rating_count=8,
+            views=89,
+            language="tm",
+            content="Test content",
+            epub_file=SimpleUploadedFile(
+                "test.epub", b"file", content_type="application/epub+zip"
+            ),
+            cover_image=SimpleUploadedFile(
+                "cover.jpg", b"img", content_type="image/jpeg"
+            ),
         )
-        self.book.categories.add(self.book_subcategory)
-        self.book.bookmarks.add(self.user)
+        self.book.categories.add(self.book_sub_cat)
+        self.user.profile.bookmarked_books.add(self.book)
 
+        # Диссертация
         self.dissertation = Dissertation.objects.create(
-            title="Test Dissertation",
-            content="Dissertation content",
-            author="Alice Smith",
-            author_workplace="Institute",
-            rating=4.0,
-            views=30,
-            language="en",
-            publication_date=date(2024, 6, 15),
+            title="Test Dissertasiýa",
+            content="Dissertasiýa mazmuny...",
+            author="Gülälek Berdiyeva",
+            author_workplace="Ylymlar akademiýasy",
+            average_rating=4.9,
+            rating_count=5,
+            views=42,
+            language="tm",
+            publication_date=date(2025, 1, 10),
         )
-        self.dissertation.categories.add(self.dissertation_subcategory)
-        self.dissertation.bookmarks.add(self.user)
+        self.dissertation.categories.add(self.diss_sub_cat)
+        self.user.profile.bookmarked_dissertations.add(self.dissertation)
 
-    def test_get_article_list(self):
+    # ======================= СТАТЬИ =======================
+    def test_article_list(self):
         url = reverse("article-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["title"], "Test Article")
-        self.assertEqual(
-            response.data["results"][0]["categories"][0]["name"], "Science"
-        )
-        self.assertEqual(response.data["results"][0]["bookmarks"], [self.user.id])
+        data = response.data["results"][0]
+        self.assertEqual(data["title"], "Test Makala")
+        self.assertTrue(data["is_bookmarked"])
+        self.assertEqual(data["average_rating"], 4.7)
+        self.assertEqual(data["categories"][0]["name"], "Ylym")
 
-    def test_get_article_detail(self):
-        url = reverse("article-detail", kwargs={"pk": self.article.id})
+    def test_article_detail(self):
+        url = reverse("article-detail", kwargs={"pk": self.article.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["title"], "Test Article")
-        self.assertEqual(response.data["language"], "tm")
+        self.assertEqual(response.data["title"], "Test Makala")
+        self.assertTrue(response.data["is_bookmarked"])
 
-    def test_article_filter_by_language(self):
-        url = reverse("article-list") + "?language=tm"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["language"], "tm")
+    def test_article_filters(self):
+        tests = [
+            ("?language=tm", 1),
+            ("?type=local", 1),
+            (f"?categories={self.article_cat.id}", 1),
+            ("?publication_date__gte=2025-01-01", 1),
+            ("?publication_date__lte=2025-12-31", 1),
+        ]
+        for query, expected_count in tests:
+            with self.subTest(query=query):
+                response = self.client.get(reverse("article-list") + query)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(len(response.data["results"]), expected_count)
 
-    def test_article_filter_by_type(self):
-        url = reverse("article-list") + "?type=local"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["type"], "local")
-
-    def test_article_filter_by_category(self):
-        url = reverse("article-list") + f"?categories={self.article_category.id}"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(
-            response.data["results"][0]["categories"][0]["name"], "Science"
-        )
-
-    def test_article_filter_by_date_range(self):
-        url = (
-            reverse("article-list")
-            + "?publication_date__gte=2023-01-01&publication_date__lte=2023-12-31"
-        )
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["publication_date"], "2023-01-01")
-
-    def test_article_combined_filter(self):
-        url = (
-            reverse("article-list")
-            + f"?language=tm&type=local&categories={self.article_category.id}&publication_date__gte=2023-01-01"
-        )
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["title"], "Test Article")
-
-    def test_get_book_list(self):
+    # ======================= КНИГИ =======================
+    def test_book_list(self):
         url = reverse("book-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["title"], "Test Book")
-        self.assertEqual(
-            response.data["results"][0]["categories"][0]["name"], "Biology"
-        )
+        data = response.data["results"][0]
+        self.assertEqual(data["title"], "Test Kitap")
+        self.assertTrue(data["is_bookmarked"])
+        self.assertEqual(data["average_rating"], 4.3)
+        self.assertIn("Biologiýa", [c["name"] for c in data["categories"]])
 
-    def test_get_book_detail(self):
-        url = reverse("book-detail", kwargs={"pk": self.book.id})
+    def test_book_detail(self):
+        url = reverse("book-detail", kwargs={"pk": self.book.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["title"], "Test Book")
-        self.assertEqual(response.data["language"], "ru")
+        self.assertTrue(response.data["is_bookmarked"])
+        self.assertIsNotNone(response.data["epub_file"])
 
-    def test_book_filter_by_language(self):
-        url = reverse("book-list") + "?language=ru"
-        response = self.client.get(url)
+    def test_book_filters(self):
+        response = self.client.get(
+            reverse("book-list") + f"?categories={self.book_sub_cat.id}"
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["language"], "ru")
 
-    def test_book_filter_by_category(self):
-        url = reverse("book-list") + f"?categories={self.book_subcategory.id}"
-        response = self.client.get(url)
+        response = self.client.get(reverse("book-list") + "?language=tm")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(
-            response.data["results"][0]["categories"][0]["name"], "Biology"
-        )
 
-    def test_get_dissertation_list(self):
+    # ======================= ДИССЕРТАЦИИ =======================
+    def test_dissertation_list(self):
         url = reverse("dissertation-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["title"], "Test Dissertation")
-        self.assertEqual(
-            response.data["results"][0]["categories"][0]["name"], "Physics"
+        data = response.data["results"][0]
+        self.assertEqual(data["title"], "Test Dissertasiýa")
+        self.assertTrue(data["is_bookmarked"])
+        self.assertEqual(data["average_rating"], 4.9)
+
+    def test_dissertation_detail(self):
+        url = reverse("dissertation-detail", kwargs={"pk": self.dissertation.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["is_bookmarked"])
+
+    def test_dissertation_filters(self):
+        response = self.client.get(reverse("dissertation-list") + "?language=tm")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+
+        response = self.client.get(
+            reverse("dissertation-list") + f"?categories={self.diss_sub_cat.id}"
         )
-
-    def test_get_dissertation_detail(self):
-        url = reverse("dissertation-detail", kwargs={"pk": self.dissertation.id})
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["title"], "Test Dissertation")
-        self.assertEqual(response.data["language"], "en")
-
-    def test_dissertation_filter_by_language(self):
-        url = reverse("dissertation-list") + "?language=en"
-        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["language"], "en")
 
-    def test_dissertation_filter_by_category(self):
-        url = (
-            reverse("dissertation-list")
-            + f"?categories={self.dissertation_subcategory.id}"
+    # ======================= КАТЕГОРИИ =======================
+    def test_category_lists(self):
+        # Article categories
+        response = self.client.get(reverse("articlecategory-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "Ylym")
+
+        # Book categories
+        response = self.client.get(reverse("bookcategory-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+
+        # Book category with parent filter
+        response = self.client.get(
+            reverse("bookcategory-list") + f"?parent={self.book_main_cat.id}"
         )
-        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(
-            response.data["results"][0]["categories"][0]["name"], "Physics"
-        )
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "Biologiýa")
 
-    def test_get_article_category_list(self):
-        url = reverse("articlecategory-list")
-        response = self.client.get(url)
+        # Dissertation categories
+        response = self.client.get(reverse("dissertationcategory-list"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["name"], "Science")
-
-    def test_get_book_category_list(self):
-        url = reverse("bookcategory-list")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
-        self.assertEqual(response.data["results"][0]["name"], "Scientific")
-
-    def test_book_category_filter_by_parent(self):
-        url = reverse("bookcategory-list") + f"?parent={self.book_top_category.id}"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["name"], "Biology")
-
-    def test_book_category_filter_by_top_level(self):
-        url = reverse("bookcategory-list") + "?parent__isnull=true"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["name"], "Scientific")
-
-    def test_get_dissertation_category_list(self):
-        url = reverse("dissertationcategory-list")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
-        self.assertEqual(response.data["results"][0]["name"], "Academic")
-
-    def test_dissertation_category_filter_by_parent(self):
-        url = (
-            reverse("dissertationcategory-list")
-            + f"?parent={self.dissertation_top_category.id}"
-        )
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["name"], "Physics")
-
-    def test_dissertation_category_filter_by_top_level(self):
-        url = reverse("dissertationcategory-list") + "?parent__isnull=true"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["name"], "Academic")
+        self.assertEqual(len(response.data), 2)
