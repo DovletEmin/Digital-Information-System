@@ -204,3 +204,50 @@ class ContentAPITestCase(APITestCase):
         response = self.client.get(reverse("dissertationcategory-list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
+
+    def test_elasticsearch_integration_category(self):
+        try:
+            response = self.client.get(reverse("content-search") + "?category=Ylym")
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(len(response.data["results"]), 1)
+        except Exception as e:
+            self.fail(f"Elasticsearch integration test failed: {e}")
+
+    def test_elasticsearch_integration_content_type(self):
+        try:
+            response = self.client.get(
+                reverse("content-search") + "?content_type=book"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(len(response.data["results"]), 1)
+        except Exception as e:
+            self.fail(f"Elasticsearch integration test failed: {e}")
+    
+    def test_elasticsearch_integration_title(self):
+        try:
+            response = self.client.get(
+                reverse("content-search") + "?title=Test Makala"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(len(response.data["results"]), 1)
+        except Exception as e:
+            self.fail(f"Elasticsearch integration test failed: {e}")
+    def test_elasticsearch_integration_fulltext(self):
+        try:
+            response = self.client.get(
+                reverse("content-search") + "?q=test"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(len(response.data["results"]), 1)
+        except Exception as e:
+            self.fail(f"Elasticsearch integration test failed: {e}")
+
+    def test_elasticsearch_integration_publication_date_range(self):
+        try:
+            response = self.client.get(
+                reverse("content-search") + "?publication_date__gte=2025-01-01&publication_date__lte=2025-12-31"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(len(response.data["results"]), 1)
+        except Exception as e:
+            self.fail(f"Elasticsearch integration test failed: {e}")
