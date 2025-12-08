@@ -1,0 +1,131 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}Statistika — SMU Digital Library{% endblock %}
+
+{% block extrahead %}
+<style>
+body {
+    background: #f3f4f6;
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
+    margin: 0;
+}
+
+h1, h2 { font-weight: 700; }
+h1 { font-size: 2.5rem; color: #1e3a8a; }
+h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.8rem;
+    margin: 2rem 0;
+}
+
+.stat-card, .mini-card, .top-item {
+    background: #ffffff;
+    border-radius: 1.25rem;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    padding: 1.8rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.stat-card:hover, .mini-card:hover, .top-item:hover { 
+    transform: translateY(-5px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+}
+
+.stat-big {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: #111827;
+}
+
+.mini-card {
+    border-left: 6px solid var(--color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.mini-card h3 { font-size: 2rem; font-weight: 700; color: var(--color); margin: 0; }
+.mini-card p { font-size: 1rem; color: #475569; margin-top: 0.25rem; }
+
+.top-item {
+    border-left: 6px solid var(--border-color);
+    padding: 1rem 1.2rem;
+}
+.top-item strong { color: #1e3a8a; font-size: 1.1rem; }
+.top-item small { color: #475569; }
+
+.text-center { text-align: center; }
+
+@media (max-width: 640px) {
+    h1 { font-size: 2rem; }
+    .stat-big { font-size: 2.5rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-7xl p-6">
+
+    <h1 class="text-center mt-4">SMU Sanly Kitaphanasy — Umumy Statistika</h1>
+    <p class="text-center text-gray-500 text-lg mb-10">{{ today }}</p>
+
+    <!-- MAIN STATS -->
+    <h2>Umumy Sanlar</h2>
+    <div class="grid">
+        <div class="stat-card"><div class="stat-big">{{ total_materials }}</div><p>Jemi material</p></div>
+        <div class="stat-card"><div class="stat-big">{{ total_articles }}</div><p>Makalalar</p></div>
+        <div class="stat-card"><div class="stat-big">{{ total_books }}</div><p>Kitaplar</p></div>
+        <div class="stat-card"><div class="stat-big">{{ total_dissertations }}</div><p>Dissertasiýalar</p></div>
+        <div class="stat-card"><div class="stat-big">{{ total_views }}</div><p>Jemi görülme</p></div>
+        <div class="stat-card"><div class="stat-big">{{ total_users }}</div><p>Ulanyjylar</p></div>
+        <div class="stat-card"><div class="stat-big">{{ active_last_week }}</div><p>Soňky 7 günde aktiw</p></div>
+        <div class="stat-card">
+    <div class="stat-big">{{ bookmarks_articles }}</div>
+    <p>Makala zakladkalary</p>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-big">{{ bookmarks_books }}</div>
+        <p>Kitap zakladkalary</p>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-big">{{ bookmarks_dissertations }}</div>
+        <p>Dissertasiýa zakladkalary</p>
+    </div>
+
+    </div>
+
+    <!-- SECONDARY CARDS -->
+    <h2>Goşmaça Statistika</h2>
+    <div class="grid">
+        <div class="mini-card" style="--color:#10b981"><h3>{{ avg_rating }}</h3><p>Ortaça umumy baha</p></div>
+        <div class="mini-card" style="--color:#3b82f6"><h3>+{{ new_last_month }}</h3><p>Soňky 30 günde goşulan</p></div>
+        <div class="mini-card" style="--color:#16a34a"><h3>{{ tm_count }}</h3><p>TM materiallar</p></div>
+        <div class="mini-card" style="--color:#ef4444"><h3>{{ ru_count }}</h3><p>RU materiallar</p></div>
+        <div class="mini-card" style="--color:#7c3aed"><h3>{{ en_count }}</h3><p>EN materiallar</p></div>
+    </div>
+
+    <!-- TOP MATERIALS -->
+    <h2 class="text-center mt-14 mb-6">Iň köp okalan materiallar</h2>
+    <div class="grid">
+        {% for item in top_articles %}
+        <div class="top-item" style="--border-color:#10b981"><strong>{{ item.title|truncatechars:60 }}</strong><br><small>{{ item.author }} • {{ item.views }} gezek</small></div>
+        {% endfor %}
+        {% for item in top_books %}
+        <div class="top-item" style="--border-color:#3b82f6"><strong>{{ item.title|truncatechars:60 }}</strong><br><small>{{ item.author }} • {{ item.views }} gezek</small></div>
+        {% endfor %}
+        {% for item in top_dissertations %}
+        <div class="top-item" style="--border-color:#8b5cf6"><strong>{{ item.title|truncatechars:60 }}</strong><br><small>{{ item.author }} • {{ item.views }} gezek</small></div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}
