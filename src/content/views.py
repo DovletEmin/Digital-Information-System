@@ -652,34 +652,62 @@ def admin_statistics(request):
         "top_articles": Article.objects.order_by("-views")[:5],
         "top_books": Book.objects.order_by("-views")[:5],
         "top_dissertations": Dissertation.objects.order_by("-views")[:5],
+        # Only Article and Dissertation have `publication_date`; Book does not.
         "new_last_month": (
             Article.objects.filter(publication_date__gte=last_month).count()
-            + Book.objects.filter(publication_date__gte=last_month).count()
             + Dissertation.objects.filter(publication_date__gte=last_month).count()
         ),
     }
 
-    # --- Prepare chart data: top materials combined by views ---
-    combined = list(context["top_articles"]) + list(context["top_books"]) + list(context["top_dissertations"])
-    # create simple list of (title, views)
-    combined_list = [(getattr(i, "title", ""), getattr(i, "views", 0)) for i in combined]
-    # sort and take top 10
-    combined_sorted = sorted(combined_list, key=lambda x: x[1], reverse=True)[:10]
-    chart_labels = [t if len(t) <= 60 else t[:57] + "..." for t, v in combined_sorted]
-    chart_values = [v for t, v in combined_sorted]
-
-    # language distribution
+    # language distribution (counts + percentages for static display)
     lang_counts = {
         "tm": context["tm_count"],
         "ru": context["ru_count"],
         "en": context["en_count"],
     }
+    total_lang = sum(lang_counts.values())
+    if total_lang:
+        lang_percent = {k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()}
+    else:
+        lang_percent = {k: 0 for k in lang_counts}
 
     context.update(
         {
-            "chart_data_json": json.dumps({"labels": chart_labels, "values": chart_values}),
-            "language_distribution_json": json.dumps(lang_counts),
+            "language_distribution": lang_counts,
+            "language_percent": lang_percent,
         }
     )
+
+    # Per-model stats to display grouped sections in template
+    article_stats = {
+        "count": Article.objects.count(),
+        "avg_rating": round(Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "total_views": Article.objects.aggregate(v=Sum("views"))["v"] or 0,
+        "top": list(Article.objects.order_by("-views")[:7]),
+        "new_last_month": Article.objects.filter(publication_date__gte=last_month).count(),
+    }
+
+    book_stats = {
+        "count": Book.objects.count(),
+        "avg_rating": round(Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "total_views": Book.objects.aggregate(v=Sum("views"))["v"] or 0,
+        "top": list(Book.objects.order_by("-views")[:7]),
+        # Book model has no publication_date; new_last_month not available
+        "new_last_month": None,
+    }
+
+    dissertation_stats = {
+        "count": Dissertation.objects.count(),
+        "avg_rating": round(Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "total_views": Dissertation.objects.aggregate(v=Sum("views"))["v"] or 0,
+        "top": list(Dissertation.objects.order_by("-views")[:7]),
+        "new_last_month": Dissertation.objects.filter(publication_date__gte=last_month).count(),
+    }
+
+    context.update({
+        "article_stats": article_stats,
+        "book_stats": book_stats,
+        "dissertation_stats": dissertation_stats,
+    })
 
     return render(request, "admin/statistics.html", context)
