@@ -26,6 +26,7 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.shortcuts import render
 import logging
+import json
 from .models import (
     Article,
     Book,
@@ -607,6 +608,7 @@ def admin_statistics(request):
     )
 
     context = {
+        "today": today.strftime("%Y-%m-%d %H:%M"),
         "total_materials": (
             Article.objects.count()
             + Book.objects.count()
@@ -624,6 +626,14 @@ def admin_statistics(request):
         "bookmarks_books": bookmark_stats["books"] or 0,
         "bookmarks_dissertations": bookmark_stats["dissertations"] or 0,
         "avg_rating": avg_rating,
+        "avg_article_rating": round(Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "avg_book_rating": round(Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "avg_dissertation_rating": round(Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "bookmarks_total": (
+            (bookmark_stats["articles"] or 0)
+            + (bookmark_stats["books"] or 0)
+            + (bookmark_stats["dissertations"] or 0)
+        ),
         "tm_count": (
             Article.objects.filter(language="tm").count()
             + Book.objects.filter(language="tm").count()
@@ -644,9 +654,32 @@ def admin_statistics(request):
         "top_dissertations": Dissertation.objects.order_by("-views")[:5],
         "new_last_month": (
             Article.objects.filter(publication_date__gte=last_month).count()
-            # + Book.objects.filter(publication_date__gte=last_month).count()
+            + Book.objects.filter(publication_date__gte=last_month).count()
             + Dissertation.objects.filter(publication_date__gte=last_month).count()
         ),
     }
+
+    # --- Prepare chart data: top materials combined by views ---
+    combined = list(context["top_articles"]) + list(context["top_books"]) + list(context["top_dissertations"])
+    # create simple list of (title, views)
+    combined_list = [(getattr(i, "title", ""), getattr(i, "views", 0)) for i in combined]
+    # sort and take top 10
+    combined_sorted = sorted(combined_list, key=lambda x: x[1], reverse=True)[:10]
+    chart_labels = [t if len(t) <= 60 else t[:57] + "..." for t, v in combined_sorted]
+    chart_values = [v for t, v in combined_sorted]
+
+    # language distribution
+    lang_counts = {
+        "tm": context["tm_count"],
+        "ru": context["ru_count"],
+        "en": context["en_count"],
+    }
+
+    context.update(
+        {
+            "chart_data_json": json.dumps({"labels": chart_labels, "values": chart_values}),
+            "language_distribution_json": json.dumps(lang_counts),
+        }
+    )
 
     return render(request, "admin/statistics.html", context)
