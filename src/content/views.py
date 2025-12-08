@@ -14,13 +14,17 @@ from django.db.models import (
     Exists,
     OuterRef,
     BooleanField,
+    Count,
+    Avg,
+    Sum,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from django.db.models import Avg
-
+from django.contrib.admin.views.decorators import staff_member_required
 from django.conf import settings
-from datetime import datetime
+from django.utils import timezone
+from datetime import datetime, timedelta
+from django.shortcuts import render
 import logging
 from .models import (
     Article,
@@ -30,6 +34,7 @@ from .models import (
     BookCategory,
     DissertationCategory,
     ContentRating,
+    Profile,
 )
 from .serializers import (
     ArticleSerializer,
@@ -567,3 +572,81 @@ class RateContentView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+@staff_member_required
+def admin_statistics(request):
+    today = timezone.now()
+    last_month = today - timedelta(days=30)
+    last_week = today - timedelta(days=7)
+
+    # ---- FIX: корректный подсчёт закладок ----
+    bookmark_stats = Profile.objects.annotate(
+        total_articles=Count("bookmarked_articles"),
+        total_books=Count("bookmarked_books"),
+        total_dissertations=Count("bookmarked_dissertations"),
+    ).aggregate(
+        articles=Sum("total_articles"),
+        books=Sum("total_books"),
+        dissertations=Sum("total_dissertations"),
+    )
+
+    # ---- FIX: корректное суммирование total_views ----
+    total_views = (
+        (Article.objects.aggregate(v=Sum("views"))["v"] or 0)
+        + (Book.objects.aggregate(v=Sum("views"))["v"] or 0)
+        + (Dissertation.objects.aggregate(v=Sum("views"))["v"] or 0)
+    )
+
+    # ---- AVG rating ----
+    avg_rating = round(
+        ((Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0) * 0.4)
+        + ((Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0) * 0.3)
+        + ((Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0) * 0.3),
+        2,
+    )
+
+    context = {
+        "total_materials": (
+            Article.objects.count()
+            + Book.objects.count()
+            + Dissertation.objects.count()
+        ),
+        "total_articles": Article.objects.count(),
+        "total_books": Book.objects.count(),
+        "total_dissertations": Dissertation.objects.count(),
+        "total_views": total_views,
+        "total_users": User.objects.count(),
+        "active_last_week": Profile.objects.filter(
+            user__last_login__gte=last_week
+        ).count(),
+        "bookmarks_articles": bookmark_stats["articles"] or 0,
+        "bookmarks_books": bookmark_stats["books"] or 0,
+        "bookmarks_dissertations": bookmark_stats["dissertations"] or 0,
+        "avg_rating": avg_rating,
+        "tm_count": (
+            Article.objects.filter(language="tm").count()
+            + Book.objects.filter(language="tm").count()
+            + Dissertation.objects.filter(language="tm").count()
+        ),
+        "ru_count": (
+            Article.objects.filter(language="ru").count()
+            + Book.objects.filter(language="ru").count()
+            + Dissertation.objects.filter(language="ru").count()
+        ),
+        "en_count": (
+            Article.objects.filter(language="en").count()
+            + Book.objects.filter(language="en").count()
+            + Dissertation.objects.filter(language="en").count()
+        ),
+        "top_articles": Article.objects.order_by("-views")[:5],
+        "top_books": Book.objects.order_by("-views")[:5],
+        "top_dissertations": Dissertation.objects.order_by("-views")[:5],
+        "new_last_month": (
+            Article.objects.filter(publication_date__gte=last_month).count()
+            # + Book.objects.filter(publication_date__gte=last_month).count()
+            + Dissertation.objects.filter(publication_date__gte=last_month).count()
+        ),
+    }
+
+    return render(request, "admin/statistics.html", context)
