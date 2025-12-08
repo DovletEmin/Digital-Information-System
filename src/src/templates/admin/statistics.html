@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
-{% block title %}Statistika — SMU Digital Library{% endblock %}
+{% block title %}Statistika — SMU{% endblock %}
 
 {% block extrahead %}
 <style>
@@ -63,6 +63,10 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
 
 .text-center { text-align: center; }
 
+.fixed-color {
+    color: #0099ff
+}
+
 @media (max-width: 640px) {
     h1 { font-size: 2rem; }
     .stat-big { font-size: 2.5rem; }
@@ -73,7 +77,7 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
 {% block content %}
 <div class="mx-auto max-w-7xl p-6">
 
-    <h1 class="text-center mt-4">SMU Sanly Kitaphanasy — Umumy Statistika</h1>
+    <h1 class="text-center mt-4">SMU — Umumy Statistika</h1>
     <p class="text-center text-gray-500 text-lg mb-10">{{ today }}</p>
 
     <!-- MAIN STATS -->
@@ -132,10 +136,10 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
     <div class="grid">
         <!-- Articles -->
         <div class="stat-card">
-            <h3>Articles</h3>
+            <h3 class="fixed-color">Articles</h3>
             <p class="muted">Count: {{ article_stats.count }} • Views: {{ article_stats.total_views }} • Avg rating: {{ article_stats.avg_rating }}</p>
             <p class="muted">New last 30 days: {{ article_stats.new_last_month }}</p>
-            <h4 style="margin-top:8px">Top articles</h4>
+            <h4 style="margin-top:8px" class="fixed-color">Top articles</h4>
             <ol style="padding-left:1.25rem">
                 {% for a in article_stats.top %}
                 <li>{{ a.title|truncatechars:100 }} — {{ a.views }} views</li>
@@ -145,14 +149,14 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
 
         <!-- Books -->
         <div class="stat-card">
-            <h3>Books</h3>
+            <h3 class="fixed-color">Books</h3>
             <p class="muted">Count: {{ book_stats.count }} • Views: {{ book_stats.total_views }} • Avg rating: {{ book_stats.avg_rating }}</p>
             {% if book_stats.new_last_month %}
             <p class="muted">New last 30 days: {{ book_stats.new_last_month }}</p>
             {% else %}
             <p class="muted">New last 30 days: N/A</p>
             {% endif %}
-            <h4 style="margin-top:8px">Top books</h4>
+            <h4 style="margin-top:8px" class="fixed-color">Top books</h4>
             <ol style="padding-left:1.25rem">
                 {% for b in book_stats.top %}
                 <li>{{ b.title|truncatechars:100 }} — {{ b.views }} views</li>
@@ -162,10 +166,10 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
 
         <!-- Dissertations -->
         <div class="stat-card">
-            <h3>Dissertations</h3>
+            <h3 class="fixed-color">Dissertations</h3>
             <p class="muted">Count: {{ dissertation_stats.count }} • Views: {{ dissertation_stats.total_views }} • Avg rating: {{ dissertation_stats.avg_rating }}</p>
             <p class="muted">New last 30 days: {{ dissertation_stats.new_last_month }}</p>
-            <h4 style="margin-top:8px">Top dissertations</h4>
+            <h4 style="margin-top:8px" class="fixed-color">Top dissertations</h4>
             <ol style="padding-left:1.25rem">
                 {% for d in dissertation_stats.top %}
                 <li>{{ d.title|truncatechars:100 }} — {{ d.views }} views</li>
