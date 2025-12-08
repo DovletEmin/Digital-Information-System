@@ -626,9 +626,15 @@ def admin_statistics(request):
         "bookmarks_books": bookmark_stats["books"] or 0,
         "bookmarks_dissertations": bookmark_stats["dissertations"] or 0,
         "avg_rating": avg_rating,
-        "avg_article_rating": round(Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
-        "avg_book_rating": round(Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
-        "avg_dissertation_rating": round(Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "avg_article_rating": round(
+            Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
+        ),
+        "avg_book_rating": round(
+            Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
+        ),
+        "avg_dissertation_rating": round(
+            Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
+        ),
         "bookmarks_total": (
             (bookmark_stats["articles"] or 0)
             + (bookmark_stats["books"] or 0)
@@ -667,7 +673,9 @@ def admin_statistics(request):
     }
     total_lang = sum(lang_counts.values())
     if total_lang:
-        lang_percent = {k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()}
+        lang_percent = {
+            k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()
+        }
     else:
         lang_percent = {k: 0 for k in lang_counts}
 
@@ -681,15 +689,21 @@ def admin_statistics(request):
     # Per-model stats to display grouped sections in template
     article_stats = {
         "count": Article.objects.count(),
-        "avg_rating": round(Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "avg_rating": round(
+            Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
+        ),
         "total_views": Article.objects.aggregate(v=Sum("views"))["v"] or 0,
         "top": list(Article.objects.order_by("-views")[:7]),
-        "new_last_month": Article.objects.filter(publication_date__gte=last_month).count(),
+        "new_last_month": Article.objects.filter(
+            publication_date__gte=last_month
+        ).count(),
     }
 
     book_stats = {
         "count": Book.objects.count(),
-        "avg_rating": round(Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "avg_rating": round(
+            Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
+        ),
         "total_views": Book.objects.aggregate(v=Sum("views"))["v"] or 0,
         "top": list(Book.objects.order_by("-views")[:7]),
         # Book model has no publication_date; new_last_month not available
@@ -698,16 +712,22 @@ def admin_statistics(request):
 
     dissertation_stats = {
         "count": Dissertation.objects.count(),
-        "avg_rating": round(Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2),
+        "avg_rating": round(
+            Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
+        ),
         "total_views": Dissertation.objects.aggregate(v=Sum("views"))["v"] or 0,
         "top": list(Dissertation.objects.order_by("-views")[:7]),
-        "new_last_month": Dissertation.objects.filter(publication_date__gte=last_month).count(),
+        "new_last_month": Dissertation.objects.filter(
+            publication_date__gte=last_month
+        ).count(),
     }
 
-    context.update({
-        "article_stats": article_stats,
-        "book_stats": book_stats,
-        "dissertation_stats": dissertation_stats,
-    })
+    context.update(
+        {
+            "article_stats": article_stats,
+            "book_stats": book_stats,
+            "dissertation_stats": dissertation_stats,
+        }
+    )
 
     return render(request, "admin/statistics.html", context)
