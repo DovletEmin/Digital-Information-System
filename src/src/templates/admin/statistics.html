@@ -23,6 +23,22 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
     margin: 2rem 0;
 }
 
+.layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "summary details"
+        "charts details";
+    gap: 1.8rem;
+    align-items: start;
+    margin: 1rem 0 3rem 0;
+}
+
+.summary-area { grid-area: summary; }
+.charts-area { grid-area: charts; }
+.details-area { grid-area: details; }
+
 .stat-card, .mini-card, .top-item {
     background: #ffffff;
     border-radius: 1.25rem;
@@ -30,6 +46,20 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
     padding: 1.8rem;
     transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
+
+.report-card {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:1.6rem;
+    border-radius:1rem;
+    background:#fff;
+    box-shadow:0 8px 20px rgba(0,0,0,0.06);
+}
+.report-left { display:flex; flex-direction:column; }
+.report-left .big { font-size:2.25rem; font-weight:800; }
+.report-left .label { color:#475569; }
+.report-right img { width:220px; height:40px; object-fit:contain }
 
 .stat-card:hover, .mini-card:hover, .top-item:hover { 
     transform: translateY(-5px);
@@ -70,43 +100,77 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
 @media (max-width: 640px) {
     h1 { font-size: 2rem; }
     .stat-big { font-size: 2.5rem; }
+    .layout { grid-template-columns: 1fr; grid-template-areas: "summary" "charts" "details"; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-7xl p-6">
-
-    <h1 class="text-center mt-4">SMU — Umumy Statistika</h1>
-    <p class="text-center text-gray-500 text-lg mb-10">{{ today }}</p>
-
-    <!-- MAIN STATS -->
-    <h2>Umumy Sanlar</h2>
-    <div class="grid">
-        <div class="stat-card"><div class="stat-big">{{ total_materials }}</div><p>Jemi material</p></div>
-        <div class="stat-card"><div class="stat-big">{{ total_articles }}</div><p>Makalalar</p></div>
-        <div class="stat-card"><div class="stat-big">{{ total_books }}</div><p>Kitaplar</p></div>
-        <div class="stat-card"><div class="stat-big">{{ total_dissertations }}</div><p>Dissertasiýalar</p></div>
-        <div class="stat-card"><div class="stat-big">{{ total_views }}</div><p>Jemi görülme</p></div>
-        <div class="stat-card"><div class="stat-big">{{ total_users }}</div><p>Ulanyjylar</p></div>
-        <div class="stat-card"><div class="stat-big">{{ active_last_week }}</div><p>Soňky 7 günde aktiw</p></div>
-        <div class="stat-card">
-    <div class="stat-big">{{ bookmarks_articles }}</div>
-    <p>Makala zakladkalary</p>
+    <div class="header-row" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;">
+        <div>
+            <h1 style="margin:0;color:#1e3a8a;font-size:2.25rem;">SMU — Umumy Statistika</h1>
+            <p style="margin:4px 0 0 0;color:#6b7280;">Esasy görkeziji we tendensiýalaryň gysgaça syny</p>
+        </div>
+        <div style="text-align:right;color:#6b7280;font-size:0.95rem">{{ today }}</div>
     </div>
 
-    <div class="stat-card">
-        <div class="stat-big">{{ bookmarks_books }}</div>
-        <p>Kitap zakladkalary</p>
+    <!-- MAIN STATS GRID -->
+    <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1.6rem;margin-top:1rem;margin-bottom:1.4rem;">
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_materials }}</div>
+            <div style="color:#6b7280;margin-top:6px">Jemi material</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_articles }}</div>
+            <div style="color:#6b7280;margin-top:6px">Makalalar</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_books }}</div>
+            <div style="color:#6b7280;margin-top:6px">Kitaplar</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_dissertations }}</div>
+            <div style="color:#6b7280;margin-top:6px">Dissertasiýalar</div>
+        </div>
+
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_views }}</div>
+            <div style="color:#6b7280;margin-top:6px">Jemi görülme</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_users }}</div>
+            <div style="color:#6b7280;margin-top:6px">Ulanyjylar</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ active_last_week }}</div>
+            <div style="color:#6b7280;margin-top:6px">Soňky 7 günde aktiw</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ bookmarks_total }}</div>
+            <div style="color:#6b7280;margin-top:6px">Jemi zakladkalar</div>
+        </div>
     </div>
 
-    <div class="stat-card">
-        <div class="stat-big">{{ bookmarks_dissertations }}</div>
-        <p>Dissertasiýa zakladkalary</p>
+    <!-- SECONDARY METRICS -->
+    <div class="secondary-row" style="display:flex;gap:1rem;margin-bottom:1.6rem;flex-wrap:wrap">
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#10b981;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">{{ avg_rating }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">Ortaça umumy baha (hemme)</p>
+        </div>
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#3b82f6;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">+{{ new_last_month }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">Soňky 30 günde goşulanlar</p>
+        </div>
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#16a34a;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">{{ tm_count }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">TM materiallar (hemme)</p>
+        </div>
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#ef4444;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">{{ ru_count }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">RU materiallar (hemme)</p>
+        </div>
     </div>
-
-    </div>
-
     <!-- SECONDARY CARDS -->
     <h2>Goşmaça Statistika</h2>
     <div class="grid">
@@ -116,6 +180,15 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
         <div class="mini-card" style="--color:#ef4444"><h3>{{ ru_count }}</h3><p>RU materiallar (all)</p></div>
         <div class="mini-card" style="--color:#7c3aed"><h3>{{ en_count }}</h3><p>EN materiallar (all)</p></div>
     </div>
+
+    <!-- CHARTS -->
+    <h2 class="mt-10">Visualization</h2>
+        <div class="grid" style="grid-template-columns:repeat(2,1fr);">
+              <div class="stat-card text-center"><h4>Dil boýunça paýlanyşyk</h4><img src="{% url 'admin_chart' 'lang' 'svg' %}?t={{ today }}" alt="Dil boýunça paýlanyşyk" style="max-width:100%;height:320px;object-fit:contain;"/></div>
+              <div class="stat-card text-center"><h4>Soňky 30 günde goşulanlar</h4><img src="{% url 'admin_chart' 'new' 'svg' %}?t={{ today }}" alt="Soňky 30 günde goşulanlar" style="max-width:100%;height:320px;object-fit:contain;"/></div>
+              <div class="stat-card text-center"><h4>Bahalaryň paýlanyşy</h4><img src="{% url 'admin_chart' 'ratings' 'svg' %}?t={{ today }}" alt="Bahalaryň paýlanyşy" style="max-width:100%;height:240px;object-fit:contain;"/></div>
+              <div class="stat-card text-center"><h4>Iň köp okalan materiallar</h4><img src="{% url 'admin_chart' 'top' 'svg' %}?t={{ today }}" alt="Iň köp okalan materiallar" style="max-width:100%;height:240px;object-fit:contain;"/></div>
+        </div>
 
     <!-- TOP MATERIALS -->
     <!-- <h2 class="text-center mt-14 mb-6">Iň köp okalan materiallar</h2>
@@ -132,14 +205,14 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
     </div> -->
 
     <!-- DETAILED BY CATEGORY -->
-    <h2 class="text-center mt-14 mb-6">Detailed by Content Type</h2>
+    <h2 class="text-center mt-14 mb-6">Mazmun görnüşi boýunça jikme-jiklik</h2>
     <div class="grid">
         <!-- Articles -->
         <div class="stat-card">
             <h3 class="fixed-color">Articles</h3>
-            <p class="muted">Count: {{ article_stats.count }} • Views: {{ article_stats.total_views }} • Avg rating: {{ article_stats.avg_rating }}</p>
-            <p class="muted">New last 30 days: {{ article_stats.new_last_month }}</p>
-            <h4 style="margin-top:8px" class="fixed-color">Top articles</h4>
+            <p class="muted">Sany: {{ article_stats.count }} • Görülme: {{ article_stats.total_views }} • Orta baha: {{ article_stats.avg_rating }}</p>
+            <p class="muted">Soňky 30 günde goşulan: {{ article_stats.new_last_month }}</p>
+            <h4 style="margin-top:8px" class="fixed-color">Iň köp okalan makalalar</h4>
             <ol style="padding-left:1.25rem">
                 {% for a in article_stats.top %}
                 <li>{{ a.title|truncatechars:100 }} — {{ a.views }} views</li>
@@ -150,13 +223,13 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
         <!-- Books -->
         <div class="stat-card">
             <h3 class="fixed-color">Books</h3>
-            <p class="muted">Count: {{ book_stats.count }} • Views: {{ book_stats.total_views }} • Avg rating: {{ book_stats.avg_rating }}</p>
+            <p class="muted">Sany: {{ book_stats.count }} • Görülme: {{ book_stats.total_views }} • Orta baha: {{ book_stats.avg_rating }}</p>
             {% if book_stats.new_last_month %}
-            <p class="muted">New last 30 days: {{ book_stats.new_last_month }}</p>
+            <p class="muted">Soňky 30 günde goşulan: {{ book_stats.new_last_month }}</p>
             {% else %}
-            <p class="muted">New last 30 days: N/A</p>
+            <p class="muted">Soňky 30 günde goşulan: N/A</p>
             {% endif %}
-            <h4 style="margin-top:8px" class="fixed-color">Top books</h4>
+            <h4 style="margin-top:8px" class="fixed-color">Iň köp okalan kitaplar</h4>
             <ol style="padding-left:1.25rem">
                 {% for b in book_stats.top %}
                 <li>{{ b.title|truncatechars:100 }} — {{ b.views }} views</li>
@@ -167,9 +240,9 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
         <!-- Dissertations -->
         <div class="stat-card">
             <h3 class="fixed-color">Dissertations</h3>
-            <p class="muted">Count: {{ dissertation_stats.count }} • Views: {{ dissertation_stats.total_views }} • Avg rating: {{ dissertation_stats.avg_rating }}</p>
-            <p class="muted">New last 30 days: {{ dissertation_stats.new_last_month }}</p>
-            <h4 style="margin-top:8px" class="fixed-color">Top dissertations</h4>
+            <p class="muted">Sany: {{ dissertation_stats.count }} • Görülme: {{ dissertation_stats.total_views }} • Orta baha: {{ dissertation_stats.avg_rating }}</p>
+            <p class="muted">Şu 30 günde goşulan: {{ dissertation_stats.new_last_month }}</p>
+            <h4 style="margin-top:8px" class="fixed-color">Iň köp okalan dissertasiýalar</h4>
             <ol style="padding-left:1.25rem">
                 {% for d in dissertation_stats.top %}
                 <li>{{ d.title|truncatechars:100 }} — {{ d.views }} views</li>
@@ -179,4 +252,5 @@ h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
     </div>
 
 </div>
+    <!-- Charts rendered server-side as SVG; Chart.js removed to avoid client rendering cost -->
 {% endblock %}
