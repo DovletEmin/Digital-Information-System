@@ -17,6 +17,7 @@ from django.db.models import (
     Count,
     Avg,
     Sum,
+    F,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -26,7 +27,10 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.shortcuts import render
 import logging
-import json
+from django.http import JsonResponse
+from django.http import HttpResponse
+from io import BytesIO
+from django.core.cache import cache
 from .models import (
     Article,
     Book,
@@ -37,6 +41,7 @@ from .models import (
     ContentRating,
     Profile,
 )
+from .models import PendingView
 from .serializers import (
     ArticleSerializer,
     BookSerializer,
@@ -46,11 +51,55 @@ from .serializers import (
     DissertationCategorySerializer,
     UserSerializer,
 )
+from django.utils import timezone as dj_timezone
+
+
+# Helper mixin to annotate queryset with is_bookmarked
+class BookmarkAnnotateMixin:
+    bookmark_field_name = None
+
+    def annotate_bookmarks(self, queryset):
+        if not self.bookmark_field_name:
+            return queryset
+
+        user = getattr(self.request, "user", None)
+        if user and user.is_authenticated:
+            subquery = getattr(user.profile, self.bookmark_field_name).filter(
+                pk=OuterRef("pk")
+            )
+            return queryset.annotate(is_bookmarked=Exists(subquery))
+
+        return queryset.annotate(is_bookmarked=Value(False, output_field=BooleanField()))
+
+
+# Module-level Elasticsearch client and health helper
+_ES_CLIENT = None
+
+def get_es_client():
+    global _ES_CLIENT
+    if _ES_CLIENT is None:
+        try:
+            es_url = settings.ELASTICSEARCH_DSL["default"]["hosts"]
+            _ES_CLIENT = Elasticsearch(es_url, timeout=30)
+        except Exception:
+            _ES_CLIENT = None
+    return _ES_CLIENT
+
+
+def es_ping_ok(client):
+    ok = cache.get("es_ping_ok")
+    if ok is None:
+        try:
+            ok = bool(client and client.ping())
+        except Exception:
+            ok = False
+        cache.set("es_ping_ok", ok, 5)
+    return ok
 
 
 # ======================= СТАТЬИ =======================
 class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Article.objects.all().order_by("-id")
+    queryset = Article.objects.all().order_by("-id").prefetch_related("categories")
     serializer_class = ArticleSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -60,25 +109,16 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         "publication_date": ["gte", "lte", "exact"],
     }
 
+    bookmark_field_name = "bookmarked_articles"
+
     def get_queryset(self):
         queryset = super().get_queryset()
-
-        if self.request.user.is_authenticated:
-            subquery = self.request.user.profile.bookmarked_articles.filter(
-                pk=OuterRef("pk")
-            )
-            queryset = queryset.annotate(is_bookmarked=Exists(subquery))
-        else:
-            queryset = queryset.annotate(
-                is_bookmarked=Value(False, output_field=BooleanField())
-            )
-
-        return queryset
+        return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
 
 
 # ======================= КНИГИ =======================
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Book.objects.all().order_by("-id")
+    queryset = Book.objects.all().order_by("-id").prefetch_related("categories")
     serializer_class = BookSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -86,25 +126,16 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
         "categories": ["exact"],
     }
 
+    bookmark_field_name = "bookmarked_books"
+
     def get_queryset(self):
         queryset = super().get_queryset()
-
-        if self.request.user.is_authenticated:
-            subquery = self.request.user.profile.bookmarked_books.filter(
-                pk=OuterRef("pk")
-            )
-            queryset = queryset.annotate(is_bookmarked=Exists(subquery))
-        else:
-            queryset = queryset.annotate(
-                is_bookmarked=Value(False, output_field=BooleanField())
-            )
-
-        return queryset
+        return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
 
 
 # ======================= ДИССЕРТАЦИИ =======================
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Dissertation.objects.all().order_by("-id")
+    queryset = Dissertation.objects.all().order_by("-id").prefetch_related("categories")
     serializer_class = DissertationSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -112,20 +143,11 @@ class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
         "categories": ["exact"],
     }
 
+    bookmark_field_name = "bookmarked_dissertations"
+
     def get_queryset(self):
         queryset = super().get_queryset()
-
-        if self.request.user.is_authenticated:
-            subquery = self.request.user.profile.bookmarked_dissertations.filter(
-                pk=OuterRef("pk")
-            )
-            queryset = queryset.annotate(is_bookmarked=Exists(subquery))
-        else:
-            queryset = queryset.annotate(
-                is_bookmarked=Value(False, output_field=BooleanField())
-            )
-
-        return queryset
+        return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
 
 
 class ArticleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -186,28 +208,22 @@ class ToggleBookmarkView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        content_type = request.data.get("type")
+        content_type = (request.data.get("type") or "").strip().lower()
 
-        if content_type == "article":
-            model = Article
-            field_name = "bookmarked_articles"
-        elif content_type == "book":
-            model = Book
-            field_name = "bookmarked_books"
-        elif content_type == "dissertation":
-            model = Dissertation
-            field_name = "bookmarked_dissertations"
-        else:
-            return Response(
-                {"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        mapping = {
+            "article": (Article, "bookmarked_articles"),
+            "book": (Book, "bookmarked_books"),
+            "dissertation": (Dissertation, "bookmarked_dissertations"),
+        }
 
+        if content_type not in mapping:
+            return Response({"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model, field_name = mapping[content_type]
         try:
             obj = model.objects.get(pk=pk)
         except model.DoesNotExist:
-            return Response(
-                {"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND)
 
         profile = request.user.profile
         user_field = getattr(profile, field_name)
@@ -232,15 +248,15 @@ class UserBookmarksView(APIView):
 
         data = {
             "articles": ArticleSerializer(
-                profile.bookmarked_articles.all(),
+                profile.bookmarked_articles.all().prefetch_related("categories"),
                 many=True,
                 context={"request": request},
             ).data,
             "books": BookSerializer(
-                profile.bookmarked_books.all(), many=True, context={"request": request}
+                profile.bookmarked_books.all().prefetch_related("categories"), many=True, context={"request": request}
             ).data,
             "dissertations": DissertationSerializer(
-                profile.bookmarked_dissertations.all(),
+                profile.bookmarked_dissertations.all().prefetch_related("categories"),
                 many=True,
                 context={"request": request},
             ).data,
@@ -258,11 +274,15 @@ class ContentSearchView(APIView):
         page_size = settings.REST_FRAMEWORK["PAGE_SIZE"]
         from_ = (page - 1) * page_size
 
-        # Подключение к Elasticsearch
-        es_url = settings.ELASTICSEARCH_DSL["default"]["hosts"]
-        client = Elasticsearch(es_url, timeout=30)
+        # Try cache first (cache key includes full path with querystring)
+        cache_key = f"search:{request.get_full_path()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
 
-        if not client.ping():
+        # Подключение к Elasticsearch (модульный клиент)
+        client = get_es_client()
+        if not es_ping_ok(client):
             return Response({"error": "Elasticsearch недоступен"}, status=503)
 
         # Базовый запрос
@@ -452,18 +472,25 @@ class ContentSearchView(APIView):
 
             results.append(base)
 
-        return Response(
-            {
-                "count": response["hits"]["total"]["value"],
-                "page": page,
-                "page_size": page_size,
-                "has_next": len(results) == page_size,
-                "results": results,
-                "query": q,
-            }
-        )
+        resp_data = {
+            "count": response["hits"]["total"]["value"],
+            "page": page,
+            "page_size": page_size,
+            "has_next": len(results) == page_size,
+            "results": results,
+            "query": q,
+        }
 
-    def _format_date(self, date_str):
+        # Cache search result for a short time
+        try:
+            cache.set(cache_key, resp_data, 300)
+        except Exception:
+            pass
+
+        return Response(resp_data)
+
+    @staticmethod
+    def _format_date(date_str):
         if not date_str:
             return None
         try:
@@ -472,6 +499,37 @@ class ContentSearchView(APIView):
             )
         except Exception:
             return date_str.split("T")[0]
+
+
+class RegisterViewHit(APIView):
+    """Endpoint to register a view for a content object.
+
+    Uses a cookie/session dedupe (24h) and writes to PendingView buffer.
+    """
+
+    def post(self, request, content_type, pk):
+        content_type = (content_type or "").strip().lower()
+        if content_type not in ("article", "book", "dissertation"):
+            return Response({"error": "Invalid content_type"}, status=400)
+
+        cookie_key = f"viewed_{content_type}_{pk}"
+        if request.COOKIES.get(cookie_key):
+            return Response({"accepted": False, "reason": "already_counted"}, status=200)
+
+        # atomically increment or create PendingView
+        try:
+            pv, created = PendingView.objects.get_or_create(
+                content_type=content_type, content_id=pk, defaults={"count": 1}
+            )
+            if not created:
+                PendingView.objects.filter(pk=pv.pk).update(count=F("count") + 1)
+        except Exception:
+            return Response({"error": "DB error"}, status=500)
+
+        resp = Response({"accepted": True})
+        # set cookie for 24h
+        resp.set_cookie(cookie_key, "1", max_age=24 * 3600, httponly=True)
+        return resp
 
 
 # ============Ratings============
@@ -577,6 +635,11 @@ class RateContentView(APIView):
 
 @staff_member_required
 def admin_statistics(request):
+    # Try cached context first
+    cached_ctx = cache.get("admin_statistics")
+    if cached_ctx is not None:
+        return render(request, "admin/statistics.html", cached_ctx)
+
     today = timezone.now()
     last_month = today - timedelta(days=30)
     last_week = today - timedelta(days=7)
@@ -600,61 +663,57 @@ def admin_statistics(request):
     )
 
     # ---- AVG rating ----
-    avg_rating = round(
-        ((Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0) * 0.4)
-        + ((Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0) * 0.3)
-        + ((Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0) * 0.3),
-        2,
+    avg_article = Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0
+    avg_book = Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0
+    avg_dissertation = Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0
+
+    avg_rating = round((avg_article * 0.4) + (avg_book * 0.3) + (avg_dissertation * 0.3), 2)
+
+    # compute counts once
+    article_count = Article.objects.count()
+    book_count = Book.objects.count()
+    dissertation_count = Dissertation.objects.count()
+
+    tm_count = (
+        Article.objects.filter(language="tm").count()
+        + Book.objects.filter(language="tm").count()
+        + Dissertation.objects.filter(language="tm").count()
+    )
+    ru_count = (
+        Article.objects.filter(language="ru").count()
+        + Book.objects.filter(language="ru").count()
+        + Dissertation.objects.filter(language="ru").count()
+    )
+    en_count = (
+        Article.objects.filter(language="en").count()
+        + Book.objects.filter(language="en").count()
+        + Dissertation.objects.filter(language="en").count()
     )
 
     context = {
         "today": today.strftime("%Y-%m-%d %H:%M"),
-        "total_materials": (
-            Article.objects.count()
-            + Book.objects.count()
-            + Dissertation.objects.count()
-        ),
-        "total_articles": Article.objects.count(),
-        "total_books": Book.objects.count(),
-        "total_dissertations": Dissertation.objects.count(),
+        "total_materials": article_count + book_count + dissertation_count,
+        "total_articles": article_count,
+        "total_books": book_count,
+        "total_dissertations": dissertation_count,
         "total_views": total_views,
         "total_users": User.objects.count(),
-        "active_last_week": Profile.objects.filter(
-            user__last_login__gte=last_week
-        ).count(),
+        "active_last_week": Profile.objects.filter(user__last_login__gte=last_week).count(),
         "bookmarks_articles": bookmark_stats["articles"] or 0,
         "bookmarks_books": bookmark_stats["books"] or 0,
         "bookmarks_dissertations": bookmark_stats["dissertations"] or 0,
         "avg_rating": avg_rating,
-        "avg_article_rating": round(
-            Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
-        ),
-        "avg_book_rating": round(
-            Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
-        ),
-        "avg_dissertation_rating": round(
-            Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
-        ),
+        "avg_article_rating": round(avg_article, 2),
+        "avg_book_rating": round(avg_book, 2),
+        "avg_dissertation_rating": round(avg_dissertation, 2),
         "bookmarks_total": (
             (bookmark_stats["articles"] or 0)
             + (bookmark_stats["books"] or 0)
             + (bookmark_stats["dissertations"] or 0)
         ),
-        "tm_count": (
-            Article.objects.filter(language="tm").count()
-            + Book.objects.filter(language="tm").count()
-            + Dissertation.objects.filter(language="tm").count()
-        ),
-        "ru_count": (
-            Article.objects.filter(language="ru").count()
-            + Book.objects.filter(language="ru").count()
-            + Dissertation.objects.filter(language="ru").count()
-        ),
-        "en_count": (
-            Article.objects.filter(language="en").count()
-            + Book.objects.filter(language="en").count()
-            + Dissertation.objects.filter(language="en").count()
-        ),
+        "tm_count": tm_count,
+        "ru_count": ru_count,
+        "en_count": en_count,
         "top_articles": Article.objects.order_by("-views")[:5],
         "top_books": Book.objects.order_by("-views")[:5],
         "top_dissertations": Dissertation.objects.order_by("-views")[:5],
@@ -666,25 +725,14 @@ def admin_statistics(request):
     }
 
     # language distribution (counts + percentages for static display)
-    lang_counts = {
-        "tm": context["tm_count"],
-        "ru": context["ru_count"],
-        "en": context["en_count"],
-    }
+    lang_counts = {"tm": tm_count, "ru": ru_count, "en": en_count}
     total_lang = sum(lang_counts.values())
     if total_lang:
-        lang_percent = {
-            k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()
-        }
+        lang_percent = {k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()}
     else:
         lang_percent = {k: 0 for k in lang_counts}
 
-    context.update(
-        {
-            "language_distribution": lang_counts,
-            "language_percent": lang_percent,
-        }
-    )
+    context.update({"language_distribution": lang_counts, "language_percent": lang_percent})
 
     # Per-model stats to display grouped sections in template
     article_stats = {
@@ -730,4 +778,263 @@ def admin_statistics(request):
         }
     )
 
+    # Cache the computed context for a short time
+    try:
+        cache.set("admin_statistics", context, 300)
+    except Exception:
+        pass
+
     return render(request, "admin/statistics.html", context)
+
+
+@staff_member_required
+def admin_statistics_data(request):
+    """JSON endpoint with enhanced statistics for admin dashboard (used by frontend charts)."""
+    # Try cached first
+    cached = cache.get("admin_statistics_data")
+    if cached is not None:
+        return JsonResponse(cached)
+
+    today = timezone.now().date()
+    last_30 = today - timedelta(days=29)
+
+    # Basic totals (reuse some of the calculations from admin_statistics)
+    total_articles = Article.objects.count()
+    total_books = Book.objects.count()
+    total_dissertations = Dissertation.objects.count()
+
+    total_views = (
+        (Article.objects.aggregate(v=Sum("views"))["v"] or 0)
+        + (Book.objects.aggregate(v=Sum("views"))["v"] or 0)
+        + (Dissertation.objects.aggregate(v=Sum("views"))["v"] or 0)
+    )
+
+    # Language distribution
+    lang_counts = {
+        "tm": Article.objects.filter(language="tm").count()
+        + Book.objects.filter(language="tm").count()
+        + Dissertation.objects.filter(language="tm").count(),
+        "ru": Article.objects.filter(language="ru").count()
+        + Book.objects.filter(language="ru").count()
+        + Dissertation.objects.filter(language="ru").count(),
+        "en": Article.objects.filter(language="en").count()
+        + Book.objects.filter(language="en").count()
+        + Dissertation.objects.filter(language="en").count(),
+    }
+
+    # Ratings distribution (1..5) — optimized single-query aggregation
+    ratings_agg = ContentRating.objects.aggregate(
+        r1=Sum(Case(When(rating=1, then=1), output_field=IntegerField())),
+        r2=Sum(Case(When(rating=2, then=1), output_field=IntegerField())),
+        r3=Sum(Case(When(rating=3, then=1), output_field=IntegerField())),
+        r4=Sum(Case(When(rating=4, then=1), output_field=IntegerField())),
+        r5=Sum(Case(When(rating=5, then=1), output_field=IntegerField())),
+    )
+    ratings = {
+        "1": ratings_agg.get("r1") or 0,
+        "2": ratings_agg.get("r2") or 0,
+        "3": ratings_agg.get("r3") or 0,
+        "4": ratings_agg.get("r4") or 0,
+        "5": ratings_agg.get("r5") or 0,
+    }
+
+    # Top items (combine few top from each model)
+    top_list = []
+    for a in Article.objects.order_by("-views")[:7]:
+        top_list.append({"id": a.id, "title": a.title, "views": a.views, "type": "article"})
+    for b in Book.objects.order_by("-views")[:7]:
+        top_list.append({"id": b.id, "title": b.title, "views": b.views, "type": "book"})
+    for d in Dissertation.objects.order_by("-views")[:7]:
+        top_list.append({"id": d.id, "title": d.title, "views": d.views, "type": "dissertation"})
+    # sort combined list by views and keep top 8 (reduce frontend rendering)
+    top_list = sorted(top_list, key=lambda x: x["views"], reverse=True)[:8]
+
+    # New items per day (articles + dissertations) for last 30 days
+    dates = []
+    counts = []
+    for i in range(30):
+        d = last_30 + timedelta(days=i)
+        c = (
+            Article.objects.filter(publication_date=d).count()
+            + Dissertation.objects.filter(publication_date=d).count()
+        )
+        dates.append(d.strftime("%Y-%m-%d"))
+        counts.append(c)
+
+    data = {
+        "totals": {
+            "total_materials": total_articles + total_books + total_dissertations,
+            "total_articles": total_articles,
+            "total_books": total_books,
+            "total_dissertations": total_dissertations,
+            "total_views": total_views,
+            "total_users": User.objects.count(),
+        },
+        "language_distribution": lang_counts,
+        "ratings_distribution": ratings,
+        "top_items": top_list,
+        "new_items": {"dates": dates, "counts": counts},
+        "generated_at": timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    try:
+        cache.set("admin_statistics_data", data, 120)
+    except Exception:
+        pass
+
+    return JsonResponse(data)
+
+
+@staff_member_required
+def admin_chart(request, chart_name, fmt="svg"):
+    """Render a chart server-side and return SVG (fmt currently supports only 'svg').
+
+    chart_name: one of 'lang', 'ratings', 'new', 'top'
+    """
+    fmt = (fmt or "svg").lower()
+    if fmt != "svg":
+        return HttpResponse("Only svg supported", status=400)
+
+    cache_key = f"chart:{chart_name}:svg"
+    cached = cache.get(cache_key)
+    if cached:
+        return HttpResponse(cached, content_type="image/svg+xml")
+
+    # import matplotlib lazily to avoid startup cost
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception:
+        return HttpResponse("Matplotlib not available", status=500)
+
+    fig = plt.Figure(figsize=(6,4), dpi=100)
+    ax = fig.subplots()
+
+    if chart_name == "lang":
+        tm = Article.objects.filter(language="tm").count() + Book.objects.filter(language="tm").count() + Dissertation.objects.filter(language="tm").count()
+        ru = Article.objects.filter(language="ru").count() + Book.objects.filter(language="ru").count() + Dissertation.objects.filter(language="ru").count()
+        en = Article.objects.filter(language="en").count() + Book.objects.filter(language="en").count() + Dissertation.objects.filter(language="en").count()
+        vals = [tm, ru, en]
+        labels = ["TM","RU","EN"]
+        colors = ["#10b981", "#3b82f6", "#7c3aed"]
+        ax.pie(vals, labels=labels, colors=colors, autopct=lambda p: f"{int(round(p*sum(vals)/100))}", startangle=90)
+        ax.set_title("Language distribution")
+
+    elif chart_name == "ratings":
+        agg = ContentRating.objects.aggregate(
+            r1=Sum(Case(When(rating=1, then=1), output_field=IntegerField())),
+            r2=Sum(Case(When(rating=2, then=1), output_field=IntegerField())),
+            r3=Sum(Case(When(rating=3, then=1), output_field=IntegerField())),
+            r4=Sum(Case(When(rating=4, then=1), output_field=IntegerField())),
+            r5=Sum(Case(When(rating=5, then=1), output_field=IntegerField())),
+        )
+        vals = [agg.get("r1") or 0, agg.get("r2") or 0, agg.get("r3") or 0, agg.get("r4") or 0, agg.get("r5") or 0]
+        labels = ["1","2","3","4","5"]
+        ax.bar(labels, vals, color=["#ef4444","#f97316","#f59e0b","#10b981","#3b82f6"])
+        ax.set_title("Ratings distribution")
+        ax.set_ylabel("Count")
+
+    elif chart_name == "new":
+        today = timezone.now().date()
+        last_30 = today - timedelta(days=29)
+        dates = []
+        counts = []
+        for i in range(30):
+            d = last_30 + timedelta(days=i)
+            c = Article.objects.filter(publication_date=d).count() + Dissertation.objects.filter(publication_date=d).count()
+            dates.append(d.strftime("%m-%d"))
+            counts.append(c)
+        ax.plot(dates, counts, color="#3b82f6")
+        ax.set_title("New items (last 30 days)")
+        ax.set_xticks(dates[::5])
+        ax.set_ylabel("Count")
+        plt = matplotlib.pyplot
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+
+    elif chart_name == "top":
+        top_list = []
+        for a in Article.objects.order_by("-views")[:5]:
+            top_list.append((a.title, a.views))
+        for b in Book.objects.order_by("-views")[:5]:
+            top_list.append((b.title, b.views))
+        for d in Dissertation.objects.order_by("-views")[:5]:
+            top_list.append((d.title, d.views))
+        top_sorted = sorted(top_list, key=lambda x: x[1], reverse=True)[:8]
+        labels = [t[0][:40] + ("…" if len(t[0])>40 else "") for t in top_sorted]
+        vals = [t[1] for t in top_sorted]
+        ax.barh(range(len(vals))[::-1], vals, color="#3b82f6")
+        ax.set_yticks(range(len(labels)))
+        ax.set_yticklabels(labels[::-1])
+        ax.set_title("Top materials by views")
+
+    # small sparklines
+    elif chart_name == "spark_new":
+        # small sparkline for new items (last 30 days)
+        today = timezone.now().date()
+        last_30 = today - timedelta(days=29)
+        dates = []
+        counts = []
+        for i in range(30):
+            d = last_30 + timedelta(days=i)
+            c = Article.objects.filter(publication_date=d).count() + Dissertation.objects.filter(publication_date=d).count()
+            dates.append(d)
+            counts.append(c)
+        ax.plot(counts, color="#3b82f6", linewidth=1)
+        ax.axis('off')
+        fig.set_size_inches(3, 0.6)
+
+    elif chart_name == "spark_ratings":
+        # small sparkline for ratings counts over 1..5 (horizontal bar simplified)
+        agg = ContentRating.objects.aggregate(
+            r1=Sum(Case(When(rating=1, then=1), output_field=IntegerField())),
+            r2=Sum(Case(When(rating=2, then=1), output_field=IntegerField())),
+            r3=Sum(Case(When(rating=3, then=1), output_field=IntegerField())),
+            r4=Sum(Case(When(rating=4, then=1), output_field=IntegerField())),
+            r5=Sum(Case(When(rating=5, then=1), output_field=IntegerField())),
+        )
+        vals = [agg.get("r1") or 0, agg.get("r2") or 0, agg.get("r3") or 0, agg.get("r4") or 0, agg.get("r5") or 0]
+        ax.bar(range(len(vals)), vals, color="#10b981")
+        ax.axis('off')
+        fig.set_size_inches(3, 0.6)
+    
+    elif chart_name == "spark_users":
+        # user registrations per day last 30
+        today = timezone.now().date()
+        last_30 = today - timedelta(days=29)
+        counts = []
+        for i in range(30):
+            d = last_30 + timedelta(days=i)
+            c = User.objects.filter(date_joined__date=d).count() if hasattr(User._meta.get_field('date_joined'), 'auto_now_add') or True else User.objects.filter(date_joined__date=d).count()
+            counts.append(c)
+        ax.plot(counts, color="#7c3aed", linewidth=1)
+        ax.axis('off')
+        fig.set_size_inches(3, 0.6)
+
+    elif chart_name == "spark_top":
+        # tiny horizontal bars for top items (views)
+        top_list = []
+        for a in Article.objects.order_by("-views")[:5]:
+            top_list.append((a.title, a.views))
+        for b in Book.objects.order_by("-views")[:5]:
+            top_list.append((b.title, b.views))
+        for d in Dissertation.objects.order_by("-views")[:5]:
+            top_list.append((d.title, d.views))
+        top_sorted = sorted(top_list, key=lambda x: x[1], reverse=True)[:6]
+        vals = [t[1] for t in top_sorted]
+        ax.bar(range(len(vals)), vals, color="#3b82f6")
+        ax.axis('off')
+        fig.set_size_inches(3, 0.6)
+
+    else:
+        return HttpResponse("Unknown chart", status=400)
+
+    # render to SVG
+    buf = BytesIO()
+    try:
+        fig.savefig(buf, format="svg", bbox_inches="tight")
+        svg = buf.getvalue()
+        cache.set(cache_key, svg, 300)
+        return HttpResponse(svg, content_type="image/svg+xml")
+    finally:
+        buf.close()
