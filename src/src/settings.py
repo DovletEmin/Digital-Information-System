@@ -201,6 +201,10 @@ CKEDITOR_CONFIGS = {
     }
 }
 
+# Silence django-ckeditor W001 system check (bundled CKEditor 4 security notice)
+# NOTE: this hides the warning; prefer migrating to CKEditor5 or using CKEditor4 LTS.
+SILENCED_SYSTEM_CHECKS = ["ckeditor.W001"]
+
 ELASTICSEARCH_DSL = {
     "default": {
         "hosts": "http://127.0.0.1:9200",
