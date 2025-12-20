@@ -1,0 +1,256 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}Statistika — SMU{% endblock %}
+
+{% block extrahead %}
+<style>
+body {
+    background: #f3f4f6;
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
+    margin: 0;
+}
+
+h1, h2 { font-weight: 700; }
+h1 { font-size: 2.5rem; color: #1e3a8a; }
+h2 { font-size: 1.8rem; color: #1e40af; margin-top: 2rem; margin-bottom: 1rem; }
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.8rem;
+    margin: 2rem 0;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "summary details"
+        "charts details";
+    gap: 1.8rem;
+    align-items: start;
+    margin: 1rem 0 3rem 0;
+}
+
+.summary-area { grid-area: summary; }
+.charts-area { grid-area: charts; }
+.details-area { grid-area: details; }
+
+.stat-card, .mini-card, .top-item {
+    background: #ffffff;
+    border-radius: 1.25rem;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    padding: 1.8rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.report-card {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:1.6rem;
+    border-radius:1rem;
+    background:#fff;
+    box-shadow:0 8px 20px rgba(0,0,0,0.06);
+}
+.report-left { display:flex; flex-direction:column; }
+.report-left .big { font-size:2.25rem; font-weight:800; }
+.report-left .label { color:#475569; }
+.report-right img { width:220px; height:40px; object-fit:contain }
+
+.stat-card:hover, .mini-card:hover, .top-item:hover { 
+    transform: translateY(-5px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+}
+
+.stat-big {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: #111827;
+}
+
+.mini-card {
+    border-left: 6px solid var(--color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.mini-card h3 { font-size: 2rem; font-weight: 700; color: var(--color); margin: 0; }
+.mini-card p { font-size: 1rem; color: #475569; margin-top: 0.25rem; }
+
+.top-item {
+    border-left: 6px solid var(--border-color);
+    padding: 1rem 1.2rem;
+}
+.top-item strong { color: #1e3a8a; font-size: 1.1rem; }
+.top-item small { color: #475569; }
+
+.text-center { text-align: center; }
+
+.fixed-color {
+    color: #0099ff
+}
+
+@media (max-width: 640px) {
+    h1 { font-size: 2rem; }
+    .stat-big { font-size: 2.5rem; }
+    .layout { grid-template-columns: 1fr; grid-template-areas: "summary" "charts" "details"; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-7xl p-6">
+    <div class="header-row" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;">
+        <div>
+            <h1 style="margin:0;color:#1e3a8a;font-size:2.25rem;">SMU — Umumy Statistika</h1>
+            <p style="margin:4px 0 0 0;color:#6b7280;">Esasy görkeziji we tendensiýalaryň gysgaça syny</p>
+        </div>
+        <div style="text-align:right;color:#6b7280;font-size:0.95rem">{{ today }}</div>
+    </div>
+
+    <!-- MAIN STATS GRID -->
+    <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1.6rem;margin-top:1rem;margin-bottom:1.4rem;">
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_materials }}</div>
+            <div style="color:#6b7280;margin-top:6px">Jemi material</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_articles }}</div>
+            <div style="color:#6b7280;margin-top:6px">Makalalar</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_books }}</div>
+            <div style="color:#6b7280;margin-top:6px">Kitaplar</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_dissertations }}</div>
+            <div style="color:#6b7280;margin-top:6px">Dissertasiýalar</div>
+        </div>
+
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_views }}</div>
+            <div style="color:#6b7280;margin-top:6px">Jemi görülme</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ total_users }}</div>
+            <div style="color:#6b7280;margin-top:6px">Ulanyjylar</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ active_last_week }}</div>
+            <div style="color:#6b7280;margin-top:6px">Soňky 7 günde aktiw</div>
+        </div>
+        <div class="stat-card" style="padding:1.6rem;">
+            <div class="stat-big" style="font-size:2.6rem">{{ bookmarks_total }}</div>
+            <div style="color:#6b7280;margin-top:6px">Jemi zakladkalar</div>
+        </div>
+    </div>
+
+    <!-- SECONDARY METRICS -->
+    <div class="secondary-row" style="display:flex;gap:1rem;margin-bottom:1.6rem;flex-wrap:wrap">
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#10b981;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">{{ avg_rating }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">Ortaça umumy baha (hemme)</p>
+        </div>
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#3b82f6;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">+{{ new_last_month }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">Soňky 30 günde goşulanlar</p>
+        </div>
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#16a34a;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">{{ tm_count }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">TM materiallar (hemme)</p>
+        </div>
+        <div class="mini-card" style="flex:1;min-width:200px;--color:#ef4444;padding:1rem;">
+            <h3 style="margin:0;color:var(--color)">{{ ru_count }}</h3>
+            <p style="margin:6px 0 0 0;color:#6b7280">RU materiallar (hemme)</p>
+        </div>
+    </div>
+    <!-- SECONDARY CARDS -->
+    <h2>Goşmaça Statistika</h2>
+    <div class="grid">
+        <div class="mini-card" style="--color:#10b981"><h3>{{ avg_rating }}</h3><p>Ortaça umumy baha (all)</p></div>
+        <div class="mini-card" style="--color:#3b82f6"><h3>+{{ new_last_month }}</h3><p>Soňky 30 günde goşulan (articles+dissertations)</p></div>
+        <div class="mini-card" style="--color:#16a34a"><h3>{{ tm_count }}</h3><p>TM materiallar (all)</p></div>
+        <div class="mini-card" style="--color:#ef4444"><h3>{{ ru_count }}</h3><p>RU materiallar (all)</p></div>
+        <div class="mini-card" style="--color:#7c3aed"><h3>{{ en_count }}</h3><p>EN materiallar (all)</p></div>
+    </div>
+
+    <!-- CHARTS -->
+    <h2 class="mt-10">Visualization</h2>
+        <div class="grid" style="grid-template-columns:repeat(2,1fr);">
+              <div class="stat-card text-center"><h4>Dil boýunça paýlanyşyk</h4><img src="{% url 'admin_chart' 'lang' 'svg' %}?t={{ today }}" alt="Dil boýunça paýlanyşyk" style="max-width:100%;height:320px;object-fit:contain;"/></div>
+              <div class="stat-card text-center"><h4>Soňky 30 günde goşulanlar</h4><img src="{% url 'admin_chart' 'new' 'svg' %}?t={{ today }}" alt="Soňky 30 günde goşulanlar" style="max-width:100%;height:320px;object-fit:contain;"/></div>
+              <div class="stat-card text-center"><h4>Bahalaryň paýlanyşy</h4><img src="{% url 'admin_chart' 'ratings' 'svg' %}?t={{ today }}" alt="Bahalaryň paýlanyşy" style="max-width:100%;height:240px;object-fit:contain;"/></div>
+              <div class="stat-card text-center"><h4>Iň köp okalan materiallar</h4><img src="{% url 'admin_chart' 'top' 'svg' %}?t={{ today }}" alt="Iň köp okalan materiallar" style="max-width:100%;height:240px;object-fit:contain;"/></div>
+        </div>
+
+    <!-- TOP MATERIALS -->
+    <!-- <h2 class="text-center mt-14 mb-6">Iň köp okalan materiallar</h2>
+    <div class="grid">
+        {% for item in top_articles %}
+        <div class="top-item" style="--border-color:#10b981"><strong>{{ item.title|truncatechars:60 }}</strong><br><small>{{ item.author }} • {{ item.views }} gezek</small></div>
+        {% endfor %}
+        {% for item in top_books %}
+        <div class="top-item" style="--border-color:#3b82f6"><strong>{{ item.title|truncatechars:60 }}</strong><br><small>{{ item.author }} • {{ item.views }} gezek</small></div>
+        {% endfor %}
+        {% for item in top_dissertations %}
+        <div class="top-item" style="--border-color:#8b5cf6"><strong>{{ item.title|truncatechars:60 }}</strong><br><small>{{ item.author }} • {{ item.views }} gezek</small></div>
+        {% endfor %}
+    </div> -->
+
+    <!-- DETAILED BY CATEGORY -->
+    <h2 class="text-center mt-14 mb-6">Mazmun görnüşi boýunça jikme-jiklik</h2>
+    <div class="grid">
+        <!-- Articles -->
+        <div class="stat-card">
+            <h3 class="fixed-color">Articles</h3>
+            <p class="muted">Sany: {{ article_stats.count }} • Görülme: {{ article_stats.total_views }} • Orta baha: {{ article_stats.avg_rating }}</p>
+            <p class="muted">Soňky 30 günde goşulan: {{ article_stats.new_last_month }}</p>
+            <h4 style="margin-top:8px" class="fixed-color">Iň köp okalan makalalar</h4>
+            <ol style="padding-left:1.25rem">
+                {% for a in article_stats.top %}
+                <li>{{ a.title|truncatechars:100 }} — {{ a.views }} views</li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <!-- Books -->
+        <div class="stat-card">
+            <h3 class="fixed-color">Books</h3>
+            <p class="muted">Sany: {{ book_stats.count }} • Görülme: {{ book_stats.total_views }} • Orta baha: {{ book_stats.avg_rating }}</p>
+            {% if book_stats.new_last_month %}
+            <p class="muted">Soňky 30 günde goşulan: {{ book_stats.new_last_month }}</p>
+            {% else %}
+            <p class="muted">Soňky 30 günde goşulan: N/A</p>
+            {% endif %}
+            <h4 style="margin-top:8px" class="fixed-color">Iň köp okalan kitaplar</h4>
+            <ol style="padding-left:1.25rem">
+                {% for b in book_stats.top %}
+                <li>{{ b.title|truncatechars:100 }} — {{ b.views }} views</li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <!-- Dissertations -->
+        <div class="stat-card">
+            <h3 class="fixed-color">Dissertations</h3>
+            <p class="muted">Sany: {{ dissertation_stats.count }} • Görülme: {{ dissertation_stats.total_views }} • Orta baha: {{ dissertation_stats.avg_rating }}</p>
+            <p class="muted">Şu 30 günde goşulan: {{ dissertation_stats.new_last_month }}</p>
+            <h4 style="margin-top:8px" class="fixed-color">Iň köp okalan dissertasiýalar</h4>
+            <ol style="padding-left:1.25rem">
+                {% for d in dissertation_stats.top %}
+                <li>{{ d.title|truncatechars:100 }} — {{ d.views }} views</li>
+                {% endfor %}
+            </ol>
+        </div>
+    </div>
+
+</div>
+    <!-- Charts rendered server-side as SVG; Chart.js removed to avoid client rendering cost -->
+{% endblock %}

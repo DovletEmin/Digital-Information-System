@@ -17,7 +17,7 @@ from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+##
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -72,7 +72,7 @@ ROOT_URLCONF = "src.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "src" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -86,6 +86,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "src.wsgi.application"
 
+DATE_FORMAT = "d-m-y"
+DATETIME_FORMAT = "d-m-y H:i"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "content.authentication.authentication.JWTAuthenticationNoBearerRequired",
@@ -95,7 +98,9 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 10,
+    "DATETIME_FORMAT": "%d.%m.%Y",
+    "DATE_FORMAT": "%d.%m.%Y",
+    "PAGE_SIZE": 8,
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
@@ -159,9 +164,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "ru"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Ashgabat"
 
 USE_I18N = True
 
@@ -194,4 +199,10 @@ CKEDITOR_CONFIGS = {
         "height": 300,
         "removePlugins": "uploadimage,image,flash,iframe",
     }
+}
+
+ELASTICSEARCH_DSL = {
+    "default": {
+        "hosts": "http://127.0.0.1:9200",
+    },
 }
