@@ -18,7 +18,7 @@ class ArticleCategorySerializer(serializers.ModelSerializer):
 
 class BookCategorySerializer(serializers.ModelSerializer):
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
-    subcategories = serializers.SerializerMethodField()
+    subcategories = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = BookCategory
@@ -30,7 +30,7 @@ class BookCategorySerializer(serializers.ModelSerializer):
 
 class DissertationCategorySerializer(serializers.ModelSerializer):
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
-    subcategories = serializers.SerializerMethodField()
+    subcategories = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = DissertationCategory
@@ -42,7 +42,7 @@ class DissertationCategorySerializer(serializers.ModelSerializer):
 
 class ArticleSerializer(serializers.ModelSerializer):
     categories = ArticleCategorySerializer(many=True, read_only=True)
-    is_bookmarked = serializers.SerializerMethodField()
+    is_bookmarked = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Article
@@ -68,15 +68,13 @@ class ArticleSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_is_bookmarked(self, obj):
-        user = self.context["request"].user
-        if user.is_authenticated:
-            return user.profile.bookmarked_articles.filter(id=obj.id).exists()
-        return False
+        # Removed DB lookup; `is_bookmarked` should be annotated on the queryset
+        return getattr(obj, "is_bookmarked", False)
 
 
 class BookSerializer(serializers.ModelSerializer):
     categories = BookCategorySerializer(many=True, read_only=True)
-    is_bookmarked = serializers.SerializerMethodField()
+    is_bookmarked = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Book
@@ -97,15 +95,12 @@ class BookSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_is_bookmarked(self, obj):
-        user = self.context["request"].user
-        if user.is_authenticated:
-            return user.profile.bookmarked_books.filter(id=obj.id).exists()
-        return False
+        return getattr(obj, "is_bookmarked", False)
 
 
 class DissertationSerializer(serializers.ModelSerializer):
     categories = DissertationCategorySerializer(many=True, read_only=True)
-    is_bookmarked = serializers.SerializerMethodField()
+    is_bookmarked = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Dissertation
@@ -126,10 +121,7 @@ class DissertationSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_is_bookmarked(self, obj):
-        user = self.context["request"].user
-        if user.is_authenticated:
-            return user.profile.bookmarked_dissertations.filter(id=obj.id).exists()
-        return False
+        return getattr(obj, "is_bookmarked", False)
 
 
 class UserSerializer(serializers.ModelSerializer):

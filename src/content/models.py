@@ -175,3 +175,18 @@ class ContentRating(models.Model):
         return (
             f"{self.user} -> {self.content_id} {self.content_id}: {self.rating} stars"
         )
+
+
+class PendingView(models.Model):
+    CONTENT_CHOICES = [("article", "Article"), ("book", "Book"), ("dissertation", "Dissertation")]
+
+    content_type = models.CharField(max_length=20, choices=CONTENT_CHOICES)
+    content_id = models.PositiveIntegerField()
+    count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("content_type", "content_id")
+
+    def __str__(self):
+        return f"PendingView {self.content_type}#{self.content_id} = {self.count}"
