@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import F
 from content.models import PendingView, Article, Book, Dissertation
-from content import search_utils
+from content.tasks import index_object_task
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,14 +32,21 @@ class Command(BaseCommand):
 
             try:
                 with transaction.atomic():
-                    updated = model.objects.filter(id=pv.content_id).update(views=F("views") + pv.count)
+                    updated = model.objects.filter(id=pv.content_id).update(
+                        views=F("views") + pv.count
+                    )
                     if updated:
-                        obj = model.objects.get(id=pv.content_id)
-                        # reindex asynchronously
-                        search_utils.index_object_async(obj)
-                        self.stdout.write(f"Flushed {pv.count} views to {pv.content_type}#{pv.content_id}")
+                        # enqueue indexing as a Celery task so retries are handled by Celery
+                        index_object_task.delay(
+                            model._meta.app_label, model.__name__, pv.content_id
+                        )
+                        self.stdout.write(
+                            f"Flushed {pv.count} views to {pv.content_type}#{pv.content_id}"
+                        )
                     else:
-                        self.stdout.write(f"Target not found: {pv.content_type}#{pv.content_id}")
+                        self.stdout.write(
+                            f"Target not found: {pv.content_type}#{pv.content_id}"
+                        )
                     # delete pending row
                     pv.delete()
             except Exception as e:

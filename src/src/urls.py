@@ -52,7 +52,9 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("statistics/", admin_statistics, name="admin_statistics"),
     path("statistics/data/", admin_statistics_data, name="admin_statistics_data"),
-    path("statistics/chart/<str:chart_name>.<str:fmt>", admin_chart, name="admin_chart"),
+    path(
+        "statistics/chart/<str:chart_name>.<str:fmt>", admin_chart, name="admin_chart"
+    ),
     # API
     path("api/", include(router.urls)),
     # Аутентификация
@@ -70,10 +72,14 @@ urlpatterns = [
     # Рейтинг и поиск
     path("rate/", RateContentView.as_view(), name="rate-content"),
     path("search/", ContentSearchView.as_view(), name="content-search"),
-        # Views registration endpoint
-        path("api/views/<str:content_type>/<int:pk>/", 
-            __import__("content.views", fromlist=["RegisterViewHit"]).RegisterViewHit.as_view(),
-            name="register-view"),
+    # Views registration endpoint
+    path(
+        "api/views/<str:content_type>/<int:pk>/",
+        __import__(
+            "content.views", fromlist=["RegisterViewHit"]
+        ).RegisterViewHit.as_view(),
+        name="register-view",
+    ),
     # Swagger + Redoc
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger"),
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),

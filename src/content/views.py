@@ -42,6 +42,7 @@ from .models import (
     Profile,
 )
 from .models import PendingView
+from .models import ViewRecord
 from .serializers import (
     ArticleSerializer,
     BookSerializer,
@@ -69,11 +70,14 @@ class BookmarkAnnotateMixin:
             )
             return queryset.annotate(is_bookmarked=Exists(subquery))
 
-        return queryset.annotate(is_bookmarked=Value(False, output_field=BooleanField()))
+        return queryset.annotate(
+            is_bookmarked=Value(False, output_field=BooleanField())
+        )
 
 
 # Module-level Elasticsearch client and health helper
 _ES_CLIENT = None
+
 
 def get_es_client():
     global _ES_CLIENT
@@ -217,13 +221,17 @@ class ToggleBookmarkView(APIView):
         }
 
         if content_type not in mapping:
-            return Response({"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         model, field_name = mapping[content_type]
         try:
             obj = model.objects.get(pk=pk)
         except model.DoesNotExist:
-            return Response({"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         profile = request.user.profile
         user_field = getattr(profile, field_name)
@@ -253,7 +261,9 @@ class UserBookmarksView(APIView):
                 context={"request": request},
             ).data,
             "books": BookSerializer(
-                profile.bookmarked_books.all().prefetch_related("categories"), many=True, context={"request": request}
+                profile.bookmarked_books.all().prefetch_related("categories"),
+                many=True,
+                context={"request": request},
             ).data,
             "dissertations": DissertationSerializer(
                 profile.bookmarked_dissertations.all().prefetch_related("categories"),
@@ -327,9 +337,9 @@ class ContentSearchView(APIView):
         filters = []
 
         # Тип контента: article, book, dissertation
-        info_type = request.query_params.get("info_type")
-        if info_type in ["article", "book", "dissertation"]:
-            filters.append({"term": {"_index": f"{info_type}s"}})
+        content_type = request.query_params.get("content_type")
+        if content_type in ["article", "book", "dissertation"]:
+            filters.append({"term": {"_index": f"{content_type}s"}})
 
         # Язык
         if request.query_params.get("language"):
@@ -406,7 +416,7 @@ class ContentSearchView(APIView):
         if filters:
             body["query"]["bool"]["filter"] = filters
 
-        if not q and not info_type:
+        if not q and not content_type:
             body["sort"].insert(0, {"average_rating": {"order": "desc"}})
             body["sort"].append({"views": {"order": "desc"}})
 
@@ -428,6 +438,7 @@ class ContentSearchView(APIView):
                 "title": source.get("title", "Без названия"),
                 "author": source.get("author", "Неизвестен"),
                 "language": source.get("language", "tm"),
+                "type": source.get("type", "Неизвестен"),
                 "average_rating": round(float(source.get("average_rating", 0)), 2),
                 "rating_count": source.get("rating_count", 0),
                 "views": source.get("views", 0),
@@ -512,24 +523,67 @@ class RegisterViewHit(APIView):
         if content_type not in ("article", "book", "dissertation"):
             return Response({"error": "Invalid content_type"}, status=400)
 
-        cookie_key = f"viewed_{content_type}_{pk}"
-        if request.COOKIES.get(cookie_key):
-            return Response({"accepted": False, "reason": "already_counted"}, status=200)
+        # Determine identifier: user or session
+        now = dj_timezone.now()
+        ttl_hours = 24
+        cutoff = now - timedelta(hours=ttl_hours)
 
-        # atomically increment or create PendingView
         try:
+            if request.user.is_authenticated:
+                # Check recent record for this user
+                seen = ViewRecord.objects.filter(
+                    user=request.user,
+                    content_type=content_type,
+                    content_id=pk,
+                    last_seen__gte=cutoff,
+                ).exists()
+                if seen:
+                    return Response(
+                        {"accepted": False, "reason": "already_counted"}, status=200
+                    )
+
+                # create/update record
+                ViewRecord.objects.update_or_create(
+                    user=request.user,
+                    content_type=content_type,
+                    content_id=pk,
+                    defaults={"last_seen": now},
+                )
+            else:
+                # ensure session present
+                if not request.session.session_key:
+                    request.session.save()
+                sk = request.session.session_key
+
+                seen = ViewRecord.objects.filter(
+                    session_key=sk,
+                    content_type=content_type,
+                    content_id=pk,
+                    last_seen__gte=cutoff,
+                ).exists()
+                if seen:
+                    return Response(
+                        {"accepted": False, "reason": "already_counted"}, status=200
+                    )
+
+                ViewRecord.objects.update_or_create(
+                    session_key=sk,
+                    content_type=content_type,
+                    content_id=pk,
+                    defaults={"last_seen": now},
+                )
+
+            # increment pending buffer
             pv, created = PendingView.objects.get_or_create(
                 content_type=content_type, content_id=pk, defaults={"count": 1}
             )
             if not created:
                 PendingView.objects.filter(pk=pv.pk).update(count=F("count") + 1)
+
         except Exception:
             return Response({"error": "DB error"}, status=500)
 
-        resp = Response({"accepted": True})
-        # set cookie for 24h
-        resp.set_cookie(cookie_key, "1", max_age=24 * 3600, httponly=True)
-        return resp
+        return Response({"accepted": True})
 
 
 # ============Ratings============
@@ -667,7 +721,9 @@ def admin_statistics(request):
     avg_book = Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0
     avg_dissertation = Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0
 
-    avg_rating = round((avg_article * 0.4) + (avg_book * 0.3) + (avg_dissertation * 0.3), 2)
+    avg_rating = round(
+        (avg_article * 0.4) + (avg_book * 0.3) + (avg_dissertation * 0.3), 2
+    )
 
     # compute counts once
     article_count = Article.objects.count()
@@ -698,7 +754,9 @@ def admin_statistics(request):
         "total_dissertations": dissertation_count,
         "total_views": total_views,
         "total_users": User.objects.count(),
-        "active_last_week": Profile.objects.filter(user__last_login__gte=last_week).count(),
+        "active_last_week": Profile.objects.filter(
+            user__last_login__gte=last_week
+        ).count(),
         "bookmarks_articles": bookmark_stats["articles"] or 0,
         "bookmarks_books": bookmark_stats["books"] or 0,
         "bookmarks_dissertations": bookmark_stats["dissertations"] or 0,
@@ -728,11 +786,15 @@ def admin_statistics(request):
     lang_counts = {"tm": tm_count, "ru": ru_count, "en": en_count}
     total_lang = sum(lang_counts.values())
     if total_lang:
-        lang_percent = {k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()}
+        lang_percent = {
+            k: round((v / total_lang) * 100, 1) for k, v in lang_counts.items()
+        }
     else:
         lang_percent = {k: 0 for k in lang_counts}
 
-    context.update({"language_distribution": lang_counts, "language_percent": lang_percent})
+    context.update(
+        {"language_distribution": lang_counts, "language_percent": lang_percent}
+    )
 
     # Per-model stats to display grouped sections in template
     article_stats = {
@@ -841,11 +903,17 @@ def admin_statistics_data(request):
     # Top items (combine few top from each model)
     top_list = []
     for a in Article.objects.order_by("-views")[:7]:
-        top_list.append({"id": a.id, "title": a.title, "views": a.views, "type": "article"})
+        top_list.append(
+            {"id": a.id, "title": a.title, "views": a.views, "type": "article"}
+        )
     for b in Book.objects.order_by("-views")[:7]:
-        top_list.append({"id": b.id, "title": b.title, "views": b.views, "type": "book"})
+        top_list.append(
+            {"id": b.id, "title": b.title, "views": b.views, "type": "book"}
+        )
     for d in Dissertation.objects.order_by("-views")[:7]:
-        top_list.append({"id": d.id, "title": d.title, "views": d.views, "type": "dissertation"})
+        top_list.append(
+            {"id": d.id, "title": d.title, "views": d.views, "type": "dissertation"}
+        )
     # sort combined list by views and keep top 8 (reduce frontend rendering)
     top_list = sorted(top_list, key=lambda x: x["views"], reverse=True)[:8]
 
@@ -903,22 +971,41 @@ def admin_chart(request, chart_name, fmt="svg"):
     # import matplotlib lazily to avoid startup cost
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except Exception:
         return HttpResponse("Matplotlib not available", status=500)
 
-    fig = plt.Figure(figsize=(6,4), dpi=100)
+    fig = plt.Figure(figsize=(6, 4), dpi=100)
     ax = fig.subplots()
 
     if chart_name == "lang":
-        tm = Article.objects.filter(language="tm").count() + Book.objects.filter(language="tm").count() + Dissertation.objects.filter(language="tm").count()
-        ru = Article.objects.filter(language="ru").count() + Book.objects.filter(language="ru").count() + Dissertation.objects.filter(language="ru").count()
-        en = Article.objects.filter(language="en").count() + Book.objects.filter(language="en").count() + Dissertation.objects.filter(language="en").count()
+        tm = (
+            Article.objects.filter(language="tm").count()
+            + Book.objects.filter(language="tm").count()
+            + Dissertation.objects.filter(language="tm").count()
+        )
+        ru = (
+            Article.objects.filter(language="ru").count()
+            + Book.objects.filter(language="ru").count()
+            + Dissertation.objects.filter(language="ru").count()
+        )
+        en = (
+            Article.objects.filter(language="en").count()
+            + Book.objects.filter(language="en").count()
+            + Dissertation.objects.filter(language="en").count()
+        )
         vals = [tm, ru, en]
-        labels = ["TM","RU","EN"]
+        labels = ["TM", "RU", "EN"]
         colors = ["#10b981", "#3b82f6", "#7c3aed"]
-        ax.pie(vals, labels=labels, colors=colors, autopct=lambda p: f"{int(round(p*sum(vals)/100))}", startangle=90)
+        ax.pie(
+            vals,
+            labels=labels,
+            colors=colors,
+            autopct=lambda p: f"{int(round(p * sum(vals) / 100))}",
+            startangle=90,
+        )
         ax.set_title("Language distribution")
 
     elif chart_name == "ratings":
@@ -929,9 +1016,17 @@ def admin_chart(request, chart_name, fmt="svg"):
             r4=Sum(Case(When(rating=4, then=1), output_field=IntegerField())),
             r5=Sum(Case(When(rating=5, then=1), output_field=IntegerField())),
         )
-        vals = [agg.get("r1") or 0, agg.get("r2") or 0, agg.get("r3") or 0, agg.get("r4") or 0, agg.get("r5") or 0]
-        labels = ["1","2","3","4","5"]
-        ax.bar(labels, vals, color=["#ef4444","#f97316","#f59e0b","#10b981","#3b82f6"])
+        vals = [
+            agg.get("r1") or 0,
+            agg.get("r2") or 0,
+            agg.get("r3") or 0,
+            agg.get("r4") or 0,
+            agg.get("r5") or 0,
+        ]
+        labels = ["1", "2", "3", "4", "5"]
+        ax.bar(
+            labels, vals, color=["#ef4444", "#f97316", "#f59e0b", "#10b981", "#3b82f6"]
+        )
         ax.set_title("Ratings distribution")
         ax.set_ylabel("Count")
 
@@ -942,7 +1037,10 @@ def admin_chart(request, chart_name, fmt="svg"):
         counts = []
         for i in range(30):
             d = last_30 + timedelta(days=i)
-            c = Article.objects.filter(publication_date=d).count() + Dissertation.objects.filter(publication_date=d).count()
+            c = (
+                Article.objects.filter(publication_date=d).count()
+                + Dissertation.objects.filter(publication_date=d).count()
+            )
             dates.append(d.strftime("%m-%d"))
             counts.append(c)
         ax.plot(dates, counts, color="#3b82f6")
@@ -961,7 +1059,7 @@ def admin_chart(request, chart_name, fmt="svg"):
         for d in Dissertation.objects.order_by("-views")[:5]:
             top_list.append((d.title, d.views))
         top_sorted = sorted(top_list, key=lambda x: x[1], reverse=True)[:8]
-        labels = [t[0][:40] + ("…" if len(t[0])>40 else "") for t in top_sorted]
+        labels = [t[0][:40] + ("…" if len(t[0]) > 40 else "") for t in top_sorted]
         vals = [t[1] for t in top_sorted]
         ax.barh(range(len(vals))[::-1], vals, color="#3b82f6")
         ax.set_yticks(range(len(labels)))
@@ -977,11 +1075,14 @@ def admin_chart(request, chart_name, fmt="svg"):
         counts = []
         for i in range(30):
             d = last_30 + timedelta(days=i)
-            c = Article.objects.filter(publication_date=d).count() + Dissertation.objects.filter(publication_date=d).count()
+            c = (
+                Article.objects.filter(publication_date=d).count()
+                + Dissertation.objects.filter(publication_date=d).count()
+            )
             dates.append(d)
             counts.append(c)
         ax.plot(counts, color="#3b82f6", linewidth=1)
-        ax.axis('off')
+        ax.axis("off")
         fig.set_size_inches(3, 0.6)
 
     elif chart_name == "spark_ratings":
@@ -993,11 +1094,17 @@ def admin_chart(request, chart_name, fmt="svg"):
             r4=Sum(Case(When(rating=4, then=1), output_field=IntegerField())),
             r5=Sum(Case(When(rating=5, then=1), output_field=IntegerField())),
         )
-        vals = [agg.get("r1") or 0, agg.get("r2") or 0, agg.get("r3") or 0, agg.get("r4") or 0, agg.get("r5") or 0]
+        vals = [
+            agg.get("r1") or 0,
+            agg.get("r2") or 0,
+            agg.get("r3") or 0,
+            agg.get("r4") or 0,
+            agg.get("r5") or 0,
+        ]
         ax.bar(range(len(vals)), vals, color="#10b981")
-        ax.axis('off')
+        ax.axis("off")
         fig.set_size_inches(3, 0.6)
-    
+
     elif chart_name == "spark_users":
         # user registrations per day last 30
         today = timezone.now().date()
@@ -1005,10 +1112,14 @@ def admin_chart(request, chart_name, fmt="svg"):
         counts = []
         for i in range(30):
             d = last_30 + timedelta(days=i)
-            c = User.objects.filter(date_joined__date=d).count() if hasattr(User._meta.get_field('date_joined'), 'auto_now_add') or True else User.objects.filter(date_joined__date=d).count()
+            c = (
+                User.objects.filter(date_joined__date=d).count()
+                if hasattr(User._meta.get_field("date_joined"), "auto_now_add") or True
+                else User.objects.filter(date_joined__date=d).count()
+            )
             counts.append(c)
         ax.plot(counts, color="#7c3aed", linewidth=1)
-        ax.axis('off')
+        ax.axis("off")
         fig.set_size_inches(3, 0.6)
 
     elif chart_name == "spark_top":
@@ -1023,7 +1134,7 @@ def admin_chart(request, chart_name, fmt="svg"):
         top_sorted = sorted(top_list, key=lambda x: x[1], reverse=True)[:6]
         vals = [t[1] for t in top_sorted]
         ax.bar(range(len(vals)), vals, color="#3b82f6")
-        ax.axis('off')
+        ax.axis("off")
         fig.set_size_inches(3, 0.6)
 
     else:

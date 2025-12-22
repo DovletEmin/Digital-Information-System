@@ -2,7 +2,7 @@ import logging
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .models import Article, Book, Dissertation, ContentRating
-from . import search_utils
+from .tasks import index_object_task, delete_object_task
 
 logger = logging.getLogger(__name__)
 
@@ -10,49 +10,65 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=Article)
 def article_saved(sender, instance, **kwargs):
     try:
-        search_utils.index_object_async(instance)
+        index_object_task.delay(
+            instance._meta.app_label, instance.__class__.__name__, instance.id
+        )
     except Exception:
-        logger.exception("Failed to async index Article id=%s", instance.id)
+        logger.exception("Failed to enqueue index task for Article id=%s", instance.id)
 
 
 @receiver(post_delete, sender=Article)
 def article_deleted(sender, instance, **kwargs):
     try:
-        search_utils.delete_object_async(instance)
+        delete_object_task.delay(
+            instance._meta.app_label, instance.__class__.__name__, instance.id
+        )
     except Exception:
-        logger.exception("Failed to async delete Article id=%s", instance.id)
+        logger.exception("Failed to enqueue delete task for Article id=%s", instance.id)
 
 
 @receiver(post_save, sender=Book)
 def book_saved(sender, instance, **kwargs):
     try:
-        search_utils.index_object_async(instance)
+        index_object_task.delay(
+            instance._meta.app_label, instance.__class__.__name__, instance.id
+        )
     except Exception:
-        logger.exception("Failed to async index Book id=%s", instance.id)
+        logger.exception("Failed to enqueue index task for Book id=%s", instance.id)
 
 
 @receiver(post_delete, sender=Book)
 def book_deleted(sender, instance, **kwargs):
     try:
-        search_utils.delete_object_async(instance)
+        delete_object_task.delay(
+            instance._meta.app_label, instance.__class__.__name__, instance.id
+        )
     except Exception:
-        logger.exception("Failed to async delete Book id=%s", instance.id)
+        logger.exception("Failed to enqueue delete task for Book id=%s", instance.id)
 
 
 @receiver(post_save, sender=Dissertation)
 def dissertation_saved(sender, instance, **kwargs):
     try:
-        search_utils.index_object_async(instance)
+        index_object_task.delay(
+            instance._meta.app_label, instance.__class__.__name__, instance.id
+        )
     except Exception:
-        logger.exception("Failed to async index Dissertation id=%s", instance.id)
+        logger.exception(
+            "Failed to enqueue index task for Dissertation id=%s", instance.id
+        )
 
 
 @receiver(post_delete, sender=Dissertation)
 def dissertation_deleted(sender, instance, **kwargs):
     try:
-        search_utils.delete_object_async(instance)
+        delete_object_task.delay(
+            instance._meta.app_label, instance.__class__.__name__, instance.id
+        )
     except Exception:
-        logger.exception("Failed to async delete Dissertation id=%s", instance.id)
+        logger.exception(
+            "Failed to enqueue delete task for Dissertation id=%s", instance.id
+        )
 
 
 # When a rating is added/updated, reindex the corresponding content
@@ -65,9 +81,12 @@ def content_rating_saved(sender, instance, **kwargs):
         Model = model_map.get(ct)
         if Model:
             try:
-                obj = Model.objects.get(id=cid)
-                search_utils.index_object_async(obj)
+                # enqueue reindex for the rated object
+                index_object_task.delay(Model._meta.app_label, Model.__name__, cid)
             except Model.DoesNotExist:
                 logger.warning("Rated object not found for indexing: %s id=%s", ct, cid)
     except Exception:
-        logger.exception("Failed handling ContentRating save for id=%s", getattr(instance, "id", None))
+        logger.exception(
+            "Failed handling ContentRating save for id=%s",
+            getattr(instance, "id", None),
+        )

@@ -178,7 +178,11 @@ class ContentRating(models.Model):
 
 
 class PendingView(models.Model):
-    CONTENT_CHOICES = [("article", "Article"), ("book", "Book"), ("dissertation", "Dissertation")]
+    CONTENT_CHOICES = [
+        ("article", "Article"),
+        ("book", "Book"),
+        ("dissertation", "Dissertation"),
+    ]
 
     content_type = models.CharField(max_length=20, choices=CONTENT_CHOICES)
     content_id = models.PositiveIntegerField()
@@ -190,3 +194,25 @@ class PendingView(models.Model):
 
     def __str__(self):
         return f"PendingView {self.content_type}#{self.content_id} = {self.count}"
+
+
+class ViewRecord(models.Model):
+    """Track recent views per user or per session to avoid double-counting within TTL."""
+
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
+    session_key = models.CharField(max_length=40, null=True, blank=True, db_index=True)
+    content_type = models.CharField(max_length=20)
+    content_id = models.PositiveIntegerField()
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["session_key", "content_type", "content_id"]),
+            models.Index(fields=["user", "content_type", "content_id"]),
+        ]
+
+    def __str__(self):
+        who = f"user={self.user_id}" if self.user_id else f"session={self.session_key}"
+        return (
+            f"ViewRecord {who} {self.content_type}#{self.content_id} @ {self.last_seen}"
+        )

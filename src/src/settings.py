@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "ckeditor",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "django_celery_beat",
     "content",
 ]
 
@@ -207,6 +208,16 @@ SILENCED_SYSTEM_CHECKS = ["ckeditor.W001"]
 
 ELASTICSEARCH_DSL = {
     "default": {
-        "hosts": "http://127.0.0.1:9200",
+        # Prefer explicit env var; default to localhost (host machine) where
+        # Elasticsearch is published when running via docker-compose.
+        "hosts": os.environ.get("ELASTICSEARCH_URL", "http://127.0.0.1:9200"),
     },
 }
+
+# Celery configuration (sane defaults for local development)
+# Broker reachable from host when Redis is published by docker-compose
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
+# When True, tasks run locally and synchronously (useful for local dev without broker)
+CELERY_TASK_ALWAYS_EAGER = os.environ.get(
+    "CELERY_TASK_ALWAYS_EAGER", "False"
+).lower() in ("1", "true", "yes")
