@@ -1,6 +1,9 @@
 # content/tests.py
 
 from rest_framework.test import APITestCase
+from django.test import override_settings
+from unittest.mock import patch
+from types import SimpleNamespace
 from django.urls import reverse
 from django.contrib.auth.models import User
 from content.models import (
@@ -15,6 +18,7 @@ from datetime import date
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True)
 class ContentAPITestCase(APITestCase):
     def setUp(self):
         # Создаём пользователя
@@ -87,6 +91,97 @@ class ContentAPITestCase(APITestCase):
         )
         self.dissertation.categories.add(self.diss_sub_cat)
         self.user.profile.bookmarked_dissertations.add(self.dissertation)
+
+        # --- Patch search / ES / indexing to avoid external dependency ---
+        # patch search_utils.index_object and delete_object so Celery tasks don't hit ES
+        self.index_patcher = patch(
+            "content.search_utils.index_object", return_value=True
+        )
+        self.delete_patcher = patch(
+            "content.search_utils.delete_object", return_value=True
+        )
+        self.get_es_patcher = patch("content.search_utils.get_es_client")
+
+        self.mock_index = self.index_patcher.start()
+        self.mock_delete = self.delete_patcher.start()
+
+        # Build a fake ES client that returns our DB objects in search results
+        def fake_search(index=None, body=None):
+            # simple behaviour: return all three objects for any query,
+            # but filter by index if provided in query params
+            hits = []
+            if "articles" in (index or "articles,books,dissertations"):
+                hits.append(
+                    {
+                        "_index": "articles",
+                        "_id": str(self.article.id),
+                        "_source": {
+                            "title": self.article.title,
+                            "author": self.article.author,
+                            "language": self.article.language,
+                            "average_rating": float(self.article.average_rating),
+                            "rating_count": self.article.rating_count,
+                            "views": self.article.views,
+                            "content": self.article.content,
+                            "categories": [
+                                {
+                                    "id": self.article_cat.id,
+                                    "name": self.article_cat.name,
+                                }
+                            ],
+                        },
+                    }
+                )
+            if "books" in (index or "articles,books,dissertations"):
+                hits.append(
+                    {
+                        "_index": "books",
+                        "_id": str(self.book.id),
+                        "_source": {
+                            "title": self.book.title,
+                            "author": self.book.author,
+                            "language": self.book.language,
+                            "average_rating": float(self.book.average_rating),
+                            "rating_count": self.book.rating_count,
+                            "views": self.book.views,
+                            "content": getattr(self.book, "content", None),
+                            "categories": [
+                                {
+                                    "id": self.book_sub_cat.id,
+                                    "name": self.book_sub_cat.name,
+                                }
+                            ],
+                        },
+                    }
+                )
+            if "dissertations" in (index or "articles,books,dissertations"):
+                hits.append(
+                    {
+                        "_index": "dissertations",
+                        "_id": str(self.dissertation.id),
+                        "_source": {
+                            "title": self.dissertation.title,
+                            "author": self.dissertation.author,
+                            "language": self.dissertation.language,
+                            "average_rating": float(self.dissertation.average_rating),
+                            "rating_count": self.dissertation.rating_count,
+                            "views": self.dissertation.views,
+                            "content": self.dissertation.content,
+                            "categories": [
+                                {
+                                    "id": self.diss_sub_cat.id,
+                                    "name": self.diss_sub_cat.name,
+                                }
+                            ],
+                        },
+                    }
+                )
+
+            return {"hits": {"total": {"value": len(hits)}, "hits": hits}}
+
+        fake_client = SimpleNamespace(search=fake_search)
+        mocked_get_es = self.get_es_patcher.start()
+        mocked_get_es.return_value = fake_client
 
     # ======================= СТАТЬИ =======================
     def test_article_list(self):
@@ -247,3 +342,11 @@ class ContentAPITestCase(APITestCase):
             self.assertGreaterEqual(len(response.data["results"]), 1)
         except Exception as e:
             self.fail(f"Elasticsearch integration test failed: {e}")
+
+    def tearDown(self):
+        try:
+            self.index_patcher.stop()
+            self.delete_patcher.stop()
+            self.get_es_patcher.stop()
+        except Exception:
+            pass
