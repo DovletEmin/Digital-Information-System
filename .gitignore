@@ -51,3 +51,4 @@ htmlcov/
 scripts
 logs 
 run
+.ruff_cache/
