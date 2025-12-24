@@ -49,3 +49,5 @@ htmlcov/
 
 # Environment variables
 scripts
+logs 
+run
