@@ -97,10 +97,14 @@ class Article(models.Model):
     rating = models.FloatField(default=0.0)
     average_rating = models.FloatField(default=0.0)
     rating_count = models.PositiveIntegerField(default=0)
-    views = models.IntegerField(default=0)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
-    type = models.CharField(max_length=7, choices=TYPE_CHOICES, default="local")
-    publication_date = models.DateField()
+    views = models.IntegerField(default=0, db_index=True)
+    language = models.CharField(
+        max_length=2, choices=LANGUAGE_CHOICES, default="tm", db_index=True
+    )
+    type = models.CharField(
+        max_length=7, choices=TYPE_CHOICES, default="local", db_index=True
+    )
+    publication_date = models.DateField(db_index=True)
     source_name = models.CharField(max_length=255, blank=True, null=True)
     source_url = models.URLField(blank=True, null=True)
     newspaper_or_journal = models.CharField(max_length=255, blank=True, null=True)
@@ -125,7 +129,9 @@ class Book(models.Model):
     average_rating = models.FloatField(default=0.0)
     rating_count = models.PositiveIntegerField(default=0)
     views = models.IntegerField(default=0)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
+    language = models.CharField(
+        max_length=2, choices=LANGUAGE_CHOICES, default="tm", db_index=True
+    )
     categories = models.ManyToManyField(BookCategory, related_name="books", blank=True)
 
     def __str__(self):
@@ -148,8 +154,11 @@ class Dissertation(models.Model):
     average_rating = models.FloatField(default=0.0)
     rating_count = models.PositiveIntegerField(default=0)
     views = models.IntegerField(default=0)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="tm")
-    publication_date = models.DateField()
+    language = models.CharField(
+        max_length=2, choices=LANGUAGE_CHOICES, default="tm", db_index=True
+    )
+    publication_date = models.DateField(db_index=True)
+    views = models.IntegerField(default=0, db_index=True)
     categories = models.ManyToManyField(
         DissertationCategory, related_name="dissertations", blank=True
     )
@@ -170,6 +179,9 @@ class ContentRating(models.Model):
 
     class Meta:
         unique_together = ("user", "content_type", "content_id")
+        indexes = [
+            models.Index(fields=["content_type", "content_id"]),
+        ]
 
     def __str__(self):
         return (
