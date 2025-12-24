@@ -53,6 +53,8 @@ from .serializers import (
     UserSerializer,
 )
 from django.utils import timezone as dj_timezone
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
 
 
 # Helper mixin to annotate queryset with is_bookmarked
@@ -102,6 +104,7 @@ def es_ping_ok(client):
 
 
 # ======================= СТАТЬИ =======================
+@method_decorator(cache_page(60 * 5), name="list")
 class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Article.objects.all().order_by("-id").prefetch_related("categories")
     serializer_class = ArticleSerializer
@@ -117,10 +120,22 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        # For list action, avoid loading full `content` field which can be large
+        if getattr(self, "action", None) == "list":
+            queryset = queryset.only(
+                "id",
+                "title",
+                "author",
+                "average_rating",
+                "rating_count",
+                "views",
+                "language",
+            )
         return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
 
 
 # ======================= КНИГИ =======================
+@method_decorator(cache_page(60 * 5), name="list")
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Book.objects.all().order_by("-id").prefetch_related("categories")
     serializer_class = BookSerializer
@@ -134,10 +149,21 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        if getattr(self, "action", None) == "list":
+            queryset = queryset.only(
+                "id",
+                "title",
+                "author",
+                "average_rating",
+                "rating_count",
+                "views",
+                "language",
+            )
         return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
 
 
 # ======================= ДИССЕРТАЦИИ =======================
+@method_decorator(cache_page(60 * 5), name="list")
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Dissertation.objects.all().order_by("-id").prefetch_related("categories")
     serializer_class = DissertationSerializer
@@ -151,15 +177,27 @@ class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        if getattr(self, "action", None) == "list":
+            queryset = queryset.only(
+                "id",
+                "title",
+                "author",
+                "average_rating",
+                "rating_count",
+                "views",
+                "language",
+            )
         return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
 
 
+@method_decorator(cache_page(60 * 60), name="list")
 class ArticleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ArticleCategory.objects.all().order_by("name")
     serializer_class = ArticleCategorySerializer
     pagination_class = None
 
 
+@method_decorator(cache_page(60 * 60), name="list")
 class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
         BookCategory.objects.all()
@@ -178,6 +216,7 @@ class BookCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
 
+@method_decorator(cache_page(60 * 60), name="list")
 class DissertationCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
         DissertationCategory.objects.all()
@@ -253,24 +292,45 @@ class UserBookmarksView(APIView):
 
     def get(self, request):
         profile = request.user.profile
+        # Cache per-user bookmarks for a short duration to reduce DB/serialization pressure
+        cache_key = f"user_bookmarks:{request.user.id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        articles_qs = (
+            profile.bookmarked_articles.all()
+            .prefetch_related("categories")
+            .only("id", "title", "author", "average_rating", "rating_count", "views")
+        )
+        books_qs = (
+            profile.bookmarked_books.all()
+            .prefetch_related("categories")
+            .only("id", "title", "author", "average_rating", "rating_count", "views")
+        )
+        dissertations_qs = (
+            profile.bookmarked_dissertations.all()
+            .prefetch_related("categories")
+            .only("id", "title", "author", "average_rating", "rating_count", "views")
+        )
 
         data = {
             "articles": ArticleSerializer(
-                profile.bookmarked_articles.all().prefetch_related("categories"),
-                many=True,
-                context={"request": request},
+                articles_qs, many=True, context={"request": request}
             ).data,
             "books": BookSerializer(
-                profile.bookmarked_books.all().prefetch_related("categories"),
-                many=True,
-                context={"request": request},
+                books_qs, many=True, context={"request": request}
             ).data,
             "dissertations": DissertationSerializer(
-                profile.bookmarked_dissertations.all().prefetch_related("categories"),
-                many=True,
-                context={"request": request},
+                dissertations_qs, many=True, context={"request": request}
             ).data,
         }
+
+        try:
+            cache.set(cache_key, data, 30)
+        except Exception:
+            pass
+
         return Response(data)
 
 
@@ -772,9 +832,15 @@ def admin_statistics(request):
         "tm_count": tm_count,
         "ru_count": ru_count,
         "en_count": en_count,
-        "top_articles": Article.objects.order_by("-views")[:5],
-        "top_books": Book.objects.order_by("-views")[:5],
-        "top_dissertations": Dissertation.objects.order_by("-views")[:5],
+        "top_articles": list(
+            Article.objects.order_by("-views").only("id", "title", "views")[:5]
+        ),
+        "top_books": list(
+            Book.objects.order_by("-views").only("id", "title", "views")[:5]
+        ),
+        "top_dissertations": list(
+            Dissertation.objects.order_by("-views").only("id", "title", "views")[:5]
+        ),
         # Only Article and Dissertation have `publication_date`; Book does not.
         "new_last_month": (
             Article.objects.filter(publication_date__gte=last_month).count()
@@ -803,7 +869,9 @@ def admin_statistics(request):
             Article.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
         ),
         "total_views": Article.objects.aggregate(v=Sum("views"))["v"] or 0,
-        "top": list(Article.objects.order_by("-views")[:7]),
+        "top": list(
+            Article.objects.order_by("-views").only("id", "title", "views")[:7]
+        ),
         "new_last_month": Article.objects.filter(
             publication_date__gte=last_month
         ).count(),
@@ -815,7 +883,7 @@ def admin_statistics(request):
             Book.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
         ),
         "total_views": Book.objects.aggregate(v=Sum("views"))["v"] or 0,
-        "top": list(Book.objects.order_by("-views")[:7]),
+        "top": list(Book.objects.order_by("-views").only("id", "title", "views")[:7]),
         # Book model has no publication_date; new_last_month not available
         "new_last_month": None,
     }
@@ -826,7 +894,9 @@ def admin_statistics(request):
             Dissertation.objects.aggregate(a=Avg("average_rating"))["a"] or 0, 2
         ),
         "total_views": Dissertation.objects.aggregate(v=Sum("views"))["v"] or 0,
-        "top": list(Dissertation.objects.order_by("-views")[:7]),
+        "top": list(
+            Dissertation.objects.order_by("-views").only("id", "title", "views")[:7]
+        ),
         "new_last_month": Dissertation.objects.filter(
             publication_date__gte=last_month
         ).count(),
