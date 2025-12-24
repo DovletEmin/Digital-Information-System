@@ -18,6 +18,7 @@ from django.db.models import (
     Avg,
     Sum,
     F,
+    Prefetch,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -55,6 +56,17 @@ from .serializers import (
 from django.utils import timezone as dj_timezone
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
+
+
+# Prepare optimized category querysets to avoid N+1 when serializing related categories
+# ArticleCategory has no `parent` FK and no subcategories relation — use plain queryset.
+article_cat_qs = ArticleCategory.objects.all()
+book_cat_qs = BookCategory.objects.select_related("parent").prefetch_related(
+    "subcategories"
+)
+dissertation_cat_qs = DissertationCategory.objects.select_related(
+    "parent"
+).prefetch_related("subcategories")
 
 
 # Helper mixin to annotate queryset with is_bookmarked
@@ -106,7 +118,11 @@ def es_ping_ok(client):
 # ======================= СТАТЬИ =======================
 @method_decorator(cache_page(60 * 5), name="list")
 class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Article.objects.all().order_by("-id").prefetch_related("categories")
+    queryset = (
+        Article.objects.all()
+        .order_by("-id")
+        .prefetch_related(Prefetch("categories", queryset=article_cat_qs))
+    )
     serializer_class = ArticleSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -137,7 +153,11 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
 # ======================= КНИГИ =======================
 @method_decorator(cache_page(60 * 5), name="list")
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Book.objects.all().order_by("-id").prefetch_related("categories")
+    queryset = (
+        Book.objects.all()
+        .order_by("-id")
+        .prefetch_related(Prefetch("categories", queryset=book_cat_qs))
+    )
     serializer_class = BookSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -165,7 +185,11 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
 # ======================= ДИССЕРТАЦИИ =======================
 @method_decorator(cache_page(60 * 5), name="list")
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Dissertation.objects.all().order_by("-id").prefetch_related("categories")
+    queryset = (
+        Dissertation.objects.all()
+        .order_by("-id")
+        .prefetch_related(Prefetch("categories", queryset=dissertation_cat_qs))
+    )
     serializer_class = DissertationSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
@@ -300,17 +324,17 @@ class UserBookmarksView(APIView):
 
         articles_qs = (
             profile.bookmarked_articles.all()
-            .prefetch_related("categories")
+            .prefetch_related(Prefetch("categories", queryset=article_cat_qs))
             .only("id", "title", "author", "average_rating", "rating_count", "views")
         )
         books_qs = (
             profile.bookmarked_books.all()
-            .prefetch_related("categories")
+            .prefetch_related(Prefetch("categories", queryset=book_cat_qs))
             .only("id", "title", "author", "average_rating", "rating_count", "views")
         )
         dissertations_qs = (
             profile.bookmarked_dissertations.all()
-            .prefetch_related("categories")
+            .prefetch_related(Prefetch("categories", queryset=dissertation_cat_qs))
             .only("id", "title", "author", "average_rating", "rating_count", "views")
         )
 
