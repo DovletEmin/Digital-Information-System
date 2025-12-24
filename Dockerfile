@@ -12,9 +12,13 @@ COPY requirements.txt /app/requirements.txt
 # If a local 'wheelhouse' directory exists in the project, copy it into the image
 # and install from it (air-gapped build). Otherwise fall back to normal pip install.
 COPY wheelhouse /wheelhouse
+# If a local wheelhouse exists, use it as an additional find-links source
+# but allow pip to fall back to PyPI for packages not present in the wheelhouse.
 RUN if [ -d /wheelhouse ] && [ "$(ls -A /wheelhouse)" ]; then \
+    echo "Using local wheelhouse for offline install"; \
     pip install --no-cache-dir --no-index --find-links /wheelhouse -r /app/requirements.txt; \
     else \
+    echo "No wheelhouse found — installing from PyPI"; \
     pip install --no-cache-dir -r /app/requirements.txt; \
     fi
 

@@ -12,7 +12,7 @@ services:
       context: .
       dockerfile: Dockerfile
     command: >
-      celery -A src worker --loglevel=info
+      sh -c "python manage.py migrate --noinput && celery -A src worker --loglevel=info"
     working_dir: /app/src
     volumes:
       - ./:/app:rw
@@ -24,6 +24,8 @@ services:
       PYTHONUNBUFFERED: "1"
       DJANGO_SETTINGS_MODULE: src.settings
     depends_on:
+      - db
+      # - web
       - redis
       - elasticsearch
     restart: unless-stopped
@@ -32,8 +34,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: >
-      celery -A src beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     working_dir: /app/src
     volumes:
       - ./:/app:rw
@@ -44,7 +44,11 @@ services:
       ELASTICSEARCH_URL: "http://elasticsearch:9200"
       PYTHONUNBUFFERED: "1"
       DJANGO_SETTINGS_MODULE: src.settings
+    command: >
+      sh -c "python manage.py migrate --noinput && celery -A src beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
     depends_on:
+      - db
+      # - web
       - redis
       - elasticsearch
     restart: unless-stopped
@@ -69,5 +73,45 @@ services:
       retries: 5
     restart: unless-stopped
 
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smu}
+      POSTGRES_USER: ${POSTGRES_USER:-smu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smu}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smu} -d ${POSTGRES_DB:-smu}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: gunicorn src.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    working_dir: /app/src
+    volumes:
+      - ./:/app:rw
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DJANGO_SETTINGS_MODULE: src.settings
+      ELASTICSEARCH_URL: "http://elasticsearch:9200"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+      - elasticsearch
+    restart: unless-stopped
+
 volumes:
   esdata:
+  pgdata:
