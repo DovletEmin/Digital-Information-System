@@ -15,7 +15,8 @@ env/
 *.pyc
 /staticfiles/
 media/
-migrations/
+# Keep migrations in git - they track schema changes!
+# migrations/ - REMOVED FROM GITIGNORE
 
 # IDEs
 .vscode/
@@ -48,6 +49,18 @@ htmlcov/
 .coverage.*
 
 # Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+db.sqlite3
+db.sqlite3-journal
+*.db
+
+# Docker volumes
+pgdata/
+esdata/
 scripts
 logs 
 run
