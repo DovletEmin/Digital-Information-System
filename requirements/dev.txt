@@ -1,0 +1,24 @@
+# Development requirements for SMU Digital Library
+# Includes debugging, profiling, and testing tools
+
+-r base.txt
+
+# Code Quality
+ruff==0.14.8
+autopep8==2.3.2
+
+# Debugging & Profiling
+django-silk==4.0.0
+
+# Testing
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+factory-boy==3.3.1
+
+# Load Testing
+locust==2.42.6
+
+# Development Tools
+ipython==8.31.0
+django-extensions==3.2.3

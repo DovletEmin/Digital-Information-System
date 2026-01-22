@@ -1,0 +1,10 @@
+# Production requirements for SMU Digital Library
+# Optimized for production deployment
+
+-r base.txt
+
+# Monitoring & Error Tracking
+sentry-sdk==2.22.0
+
+# Production server optimizations
+gevent==25.9.1
