@@ -1,90 +1,69 @@
-# src/urls.py — ФИНАЛЬНАЯ, ЛЕГЕНДАРНАЯ ВЕРСИЯ
+"""
+Main URL configuration for SMU Digital Library.
+Features API versioning and clean separation of concerns.
+"""
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-
-from rest_framework import routers
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-
-from content.views import (
-    ArticleViewSet,
-    BookViewSet,
-    DissertationViewSet,
-    ArticleCategoryViewSet,
-    BookCategoryViewSet,
-    DissertationCategoryViewSet,
-    RegisterView,
-    ToggleBookmarkView,
-    UserBookmarksView,
-    RateContentView,
-    ContentSearchView,
-    admin_statistics,  # ← статистика
-    admin_statistics_data,
-    admin_chart,
-)
-from content.authentication.views import LogoutView
+import os
 
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
-# Swagger
+from content.views import admin_statistics, admin_statistics_data, admin_chart
+
+# Swagger/OpenAPI schema
 schema_view = get_schema_view(
     openapi.Info(
         title="SMU Digital Library API",
         default_version="v1",
-        description="",
+        description="SMU Digital Library API - Full-text search, content management, and user interactions",
+        terms_of_service="https://smu.edu.tm/terms/",
+        contact=openapi.Contact(email="api@smu.edu.tm"),
+        license=openapi.License(name="Proprietary"),
     ),
     public=True,
 )
 
-# Роутер
-router = routers.DefaultRouter()
-router.register(r"articles", ArticleViewSet)
-router.register(r"books", BookViewSet)
-router.register(r"dissertations", DissertationViewSet)
-router.register(r"article-categories", ArticleCategoryViewSet)
-router.register(r"book-categories", BookCategoryViewSet)
-router.register(r"dissertation-categories", DissertationCategoryViewSet)
-
 urlpatterns = [
-    # Админка + статистика
+    # Admin interface
     path("admin/", admin.site.urls),
-    path("statistics/", admin_statistics, name="admin_statistics"),
-    path("statistics/data/", admin_statistics_data, name="admin_statistics_data"),
+    # Admin statistics
+    path("admin/statistics/", admin_statistics, name="admin_statistics"),
+    path("admin/statistics/data/", admin_statistics_data, name="admin_statistics_data"),
     path(
-        "statistics/chart/<str:chart_name>.<str:fmt>", admin_chart, name="admin_chart"
+        "admin/statistics/chart/<str:chart_name>.<str:fmt>",
+        admin_chart,
+        name="admin_chart",
     ),
-    # API
-    path("api/", include(router.urls)),
-    # Аутентификация
-    path("auth/register/", RegisterView.as_view(), name="register"),
-    path("auth/login/", TokenObtainPairView.as_view(), name="token_obtain"),
-    path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("auth/logout/", LogoutView.as_view(), name="logout"),
-    # Закладки
+    # API v1
+    path("api/v1/", include("content.api.v1.urls", namespace="api_v1")),
+    # API Documentation
     path(
-        "bookmarks/toggle/<int:pk>/",
-        ToggleBookmarkView.as_view(),
-        name="toggle-bookmark",
+        "api/docs/swagger/",
+        schema_view.with_ui("swagger", cache_timeout=0),
+        name="swagger",
     ),
-    path("bookmarks/", UserBookmarksView.as_view(), name="my-bookmarks"),
-    # Рейтинг и поиск
-    path("rate/", RateContentView.as_view(), name="rate-content"),
-    path("search/", ContentSearchView.as_view(), name="content-search"),
-    # Views registration endpoint
     path(
-        "api/views/<str:content_type>/<int:pk>/",
-        __import__(
-            "content.views", fromlist=["RegisterViewHit"]
-        ).RegisterViewHit.as_view(),
-        name="register-view",
+        "api/docs/redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"
     ),
-    # Swagger + Redoc
-    path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger"),
-    path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),
+    path("api/docs/schema/", schema_view.without_ui(cache_timeout=0), name="schema"),
 ]
 
-# Медиафайлы в DEBUG
+# Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Optional django-silk profiling (development only)
+if os.environ.get("DJANGO_ENABLE_SILK", "0").lower() in ("1", "true", "yes"):
+    try:
+        urlpatterns = [
+            path("silk/", include("silk.urls", namespace="silk"))
+        ] + urlpatterns
+    except ImportError:
+        pass
+
+    except Exception:
+        pass

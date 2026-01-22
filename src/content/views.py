@@ -20,6 +20,7 @@ from django.db.models import (
     F,
     Prefetch,
 )
+from django.db.models.functions import TruncDate
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.contrib.admin.views.decorators import staff_member_required
@@ -28,8 +29,7 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.shortcuts import render
 import logging
-from django.http import JsonResponse
-from django.http import HttpResponse
+from django.http import JsonResponse, HttpResponse
 from io import BytesIO
 from django.core.cache import cache
 from .models import (
@@ -42,8 +42,7 @@ from .models import (
     ContentRating,
     Profile,
 )
-from .models import PendingView
-from .models import ViewRecord
+from .models import PendingView, ViewRecord
 from .serializers import (
     ArticleSerializer,
     BookSerializer,
@@ -53,7 +52,13 @@ from .serializers import (
     DissertationCategorySerializer,
     UserSerializer,
 )
-from django.utils import timezone as dj_timezone
+
+from .serializers import (
+    ArticleListSerializer,
+    BookListSerializer,
+    DissertationListSerializer,
+)
+
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 
@@ -89,6 +94,62 @@ class BookmarkAnnotateMixin:
         )
 
 
+# Helper to compute language counts across multiple models with few queries
+def _aggregate_language_counts(models, languages=("tm", "ru", "en")):
+    totals = {lang: 0 for lang in languages}
+    for model in models:
+        qs = model.objects.values("language").annotate(c=Count("id"))
+        for r in qs:
+            lang = r.get("language")
+            if lang in totals:
+                totals[lang] += r.get("c", 0)
+    return totals
+
+
+# Helper: merge top items from multiple models into a single sorted list
+def _merge_top_items(
+    models_with_labels, per_model=7, total_limit=8, fields=("id", "title", "views")
+):
+    items = []
+    for model, label in models_with_labels:
+        qs = model.objects.order_by("-views").only(*fields)[:per_model]
+        for obj in qs:
+            items.append(
+                {
+                    "id": getattr(obj, "id", None),
+                    "title": getattr(obj, "title", None),
+                    "views": getattr(obj, "views", 0),
+                    "type": label,
+                }
+            )
+    return sorted(items, key=lambda x: x["views"], reverse=True)[:total_limit]
+
+
+# Helper: build a date -> count map for one or more models using a date field
+def _publication_counts_map(models, date_field, since_date):
+    counts_map = {}
+    for model in models:
+        qs = (
+            model.objects.filter(**{f"{date_field}__gte": since_date})
+            .annotate(d=TruncDate(date_field))
+            .values("d")
+            .annotate(c=Count("id"))
+        )
+        for r in qs:
+            counts_map[r["d"]] = counts_map.get(r["d"], 0) + r["c"]
+    return counts_map
+
+
+def _daily_counts_list_from_map(counts_map, since_date, days=30, date_fmt="%Y-%m-%d"):
+    dates = []
+    counts = []
+    for i in range(days):
+        d = since_date + timedelta(days=i)
+        dates.append(d.strftime(date_fmt))
+        counts.append(counts_map.get(d, 0))
+    return dates, counts
+
+
 # Module-level Elasticsearch client and health helper
 _ES_CLIENT = None
 
@@ -116,7 +177,7 @@ def es_ping_ok(client):
 
 
 # ======================= СТАТЬИ =======================
-@method_decorator(cache_page(60 * 5), name="list")
+@method_decorator(cache_page(60 * 10), name="list")
 class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
         Article.objects.all()
@@ -147,11 +208,51 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
                 "views",
                 "language",
             )
+        # Do not annotate per-user `is_bookmarked` for list view to allow
+        # shared caching across users (annotation is user-specific and
+        # prevents cache hits under high concurrency).
+        if getattr(self, "action", None) == "list":
+            return queryset
         return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
+
+    def _get_cache_version(self):
+        try:
+            v = cache.get("content_cache_version")
+            return int(v or 0)
+        except Exception:
+            return 0
+
+        def get_serializer_class(self):
+            if getattr(self, "action", None) == "list":
+                return ArticleListSerializer
+            return ArticleSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        """Cache per-object detail responses for a short time.
+
+        Cache key includes user id to preserve `is_bookmarked` per-user.
+        """
+        pk = kwargs.get("pk")
+        user_id = (
+            request.user.id
+            if getattr(request, "user", None) and request.user.is_authenticated
+            else "anon"
+        )
+        cache_key = f"article:detail:v{self._get_cache_version()}:{pk}:user:{user_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        resp = super().retrieve(request, *args, **kwargs)
+        try:
+            cache.set(cache_key, resp.data, 60)
+        except Exception:
+            pass
+        return resp
 
 
 # ======================= КНИГИ =======================
-@method_decorator(cache_page(60 * 5), name="list")
+@method_decorator(cache_page(60 * 10), name="list")
 class BookViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
         Book.objects.all()
@@ -179,11 +280,44 @@ class BookViewSet(viewsets.ReadOnlyModelViewSet):
                 "views",
                 "language",
             )
+        if getattr(self, "action", None) == "list":
+            return queryset
         return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
+
+    def _get_cache_version(self):
+        try:
+            v = cache.get("content_cache_version")
+            return int(v or 0)
+        except Exception:
+            return 0
+
+        def get_serializer_class(self):
+            if getattr(self, "action", None) == "list":
+                return BookListSerializer
+            return BookSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        pk = kwargs.get("pk")
+        user_id = (
+            request.user.id
+            if getattr(request, "user", None) and request.user.is_authenticated
+            else "anon"
+        )
+        cache_key = f"book:detail:v{self._get_cache_version()}:{pk}:user:{user_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        resp = super().retrieve(request, *args, **kwargs)
+        try:
+            cache.set(cache_key, resp.data, 60)
+        except Exception:
+            pass
+        return resp
 
 
 # ======================= ДИССЕРТАЦИИ =======================
-@method_decorator(cache_page(60 * 5), name="list")
+@method_decorator(cache_page(60 * 10), name="list")
 class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
         Dissertation.objects.all()
@@ -211,7 +345,42 @@ class DissertationViewSet(viewsets.ReadOnlyModelViewSet):
                 "views",
                 "language",
             )
+        if getattr(self, "action", None) == "list":
+            return queryset
         return BookmarkAnnotateMixin.annotate_bookmarks(self, queryset)
+
+    def _get_cache_version(self):
+        try:
+            v = cache.get("content_cache_version")
+            return int(v or 0)
+        except Exception:
+            return 0
+
+        def get_serializer_class(self):
+            if getattr(self, "action", None) == "list":
+                return DissertationListSerializer
+            return DissertationSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        pk = kwargs.get("pk")
+        user_id = (
+            request.user.id
+            if getattr(request, "user", None) and request.user.is_authenticated
+            else "anon"
+        )
+        cache_key = (
+            f"dissertation:detail:v{self._get_cache_version()}:{pk}:user:{user_id}"
+        )
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        resp = super().retrieve(request, *args, **kwargs)
+        try:
+            cache.set(cache_key, resp.data, 60)
+        except Exception:
+            pass
+        return resp
 
 
 @method_decorator(cache_page(60 * 60), name="list")
@@ -368,8 +537,13 @@ class ContentSearchView(APIView):
         page_size = settings.REST_FRAMEWORK["PAGE_SIZE"]
         from_ = (page - 1) * page_size
 
-        # Try cache first (cache key includes full path with querystring)
-        cache_key = f"search:{request.get_full_path()}"
+        # Try cache first (cache key includes full path with querystring and global cache version)
+        try:
+            version = int(cache.get("content_cache_version") or 0)
+        except Exception:
+            version = 0
+
+        cache_key = f"search:v{version}:{request.get_full_path()}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
@@ -384,12 +558,31 @@ class ContentSearchView(APIView):
             "from": from_,
             "size": page_size,
             "query": {"bool": {"must": [], "filter": []}},
+            # Limit returned source fields to reduce payload size
+            "_source": [
+                "title",
+                "author",
+                "language",
+                "average_rating",
+                "rating_count",
+                "views",
+                "publication_date",
+                "image",
+                "epub_file",
+                "cover_image",
+                "source_name",
+                "source_url",
+                "newspaper_or_journal",
+                "author_workplace",
+                "type",
+                "categories",
+            ],
             "highlight": {
                 "pre_tags": ["<b class='highlight'>"],
                 "post_tags": ["</b>"],
                 "fields": {
-                    "title": {"fragment_size": 150, "number_of_fragments": 1},
-                    "content": {"fragment_size": 200, "number_of_fragments": 2},
+                    "title": {"fragment_size": 100, "number_of_fragments": 1},
+                    "content": {"fragment_size": 120, "number_of_fragments": 1},
                 },
             },
             "sort": [{"_score": {"order": "desc"}}],
@@ -576,7 +769,7 @@ class ContentSearchView(APIView):
             "query": q,
         }
 
-        # Cache search result for a short time
+        # Cache search result for a short time (include version in key)
         try:
             cache.set(cache_key, resp_data, 300)
         except Exception:
@@ -608,7 +801,7 @@ class RegisterViewHit(APIView):
             return Response({"error": "Invalid content_type"}, status=400)
 
         # Determine identifier: user or session
-        now = dj_timezone.now()
+        now = timezone.now()
         ttl_hours = 24
         cutoff = now - timedelta(hours=ttl_hours)
 
@@ -814,21 +1007,10 @@ def admin_statistics(request):
     book_count = Book.objects.count()
     dissertation_count = Dissertation.objects.count()
 
-    tm_count = (
-        Article.objects.filter(language="tm").count()
-        + Book.objects.filter(language="tm").count()
-        + Dissertation.objects.filter(language="tm").count()
-    )
-    ru_count = (
-        Article.objects.filter(language="ru").count()
-        + Book.objects.filter(language="ru").count()
-        + Dissertation.objects.filter(language="ru").count()
-    )
-    en_count = (
-        Article.objects.filter(language="en").count()
-        + Book.objects.filter(language="en").count()
-        + Dissertation.objects.filter(language="en").count()
-    )
+    lang_totals = _aggregate_language_counts([Article, Book, Dissertation])
+    tm_count = lang_totals.get("tm", 0)
+    ru_count = lang_totals.get("ru", 0)
+    en_count = lang_totals.get("en", 0)
 
     context = {
         "today": today.strftime("%Y-%m-%d %H:%M"),
@@ -966,17 +1148,7 @@ def admin_statistics_data(request):
     )
 
     # Language distribution
-    lang_counts = {
-        "tm": Article.objects.filter(language="tm").count()
-        + Book.objects.filter(language="tm").count()
-        + Dissertation.objects.filter(language="tm").count(),
-        "ru": Article.objects.filter(language="ru").count()
-        + Book.objects.filter(language="ru").count()
-        + Dissertation.objects.filter(language="ru").count(),
-        "en": Article.objects.filter(language="en").count()
-        + Book.objects.filter(language="en").count()
-        + Dissertation.objects.filter(language="en").count(),
-    }
+    lang_counts = _aggregate_language_counts([Article, Book, Dissertation])
 
     # Ratings distribution (1..5) — optimized single-query aggregation
     ratings_agg = ContentRating.objects.aggregate(
@@ -995,33 +1167,19 @@ def admin_statistics_data(request):
     }
 
     # Top items (combine few top from each model)
-    top_list = []
-    for a in Article.objects.order_by("-views")[:7]:
-        top_list.append(
-            {"id": a.id, "title": a.title, "views": a.views, "type": "article"}
-        )
-    for b in Book.objects.order_by("-views")[:7]:
-        top_list.append(
-            {"id": b.id, "title": b.title, "views": b.views, "type": "book"}
-        )
-    for d in Dissertation.objects.order_by("-views")[:7]:
-        top_list.append(
-            {"id": d.id, "title": d.title, "views": d.views, "type": "dissertation"}
-        )
-    # sort combined list by views and keep top 8 (reduce frontend rendering)
-    top_list = sorted(top_list, key=lambda x: x["views"], reverse=True)[:8]
+    top_list = _merge_top_items(
+        [(Article, "article"), (Book, "book"), (Dissertation, "dissertation")],
+        per_model=7,
+        total_limit=8,
+    )
 
     # New items per day (articles + dissertations) for last 30 days
-    dates = []
-    counts = []
-    for i in range(30):
-        d = last_30 + timedelta(days=i)
-        c = (
-            Article.objects.filter(publication_date=d).count()
-            + Dissertation.objects.filter(publication_date=d).count()
-        )
-        dates.append(d.strftime("%Y-%m-%d"))
-        counts.append(c)
+    counts_map = _publication_counts_map(
+        [Article, Dissertation], "publication_date", last_30
+    )
+    dates, counts = _daily_counts_list_from_map(
+        counts_map, last_30, days=30, date_fmt="%Y-%m-%d"
+    )
 
     data = {
         "totals": {
@@ -1075,22 +1233,12 @@ def admin_chart(request, chart_name, fmt="svg"):
     ax = fig.subplots()
 
     if chart_name == "lang":
-        tm = (
-            Article.objects.filter(language="tm").count()
-            + Book.objects.filter(language="tm").count()
-            + Dissertation.objects.filter(language="tm").count()
-        )
-        ru = (
-            Article.objects.filter(language="ru").count()
-            + Book.objects.filter(language="ru").count()
-            + Dissertation.objects.filter(language="ru").count()
-        )
-        en = (
-            Article.objects.filter(language="en").count()
-            + Book.objects.filter(language="en").count()
-            + Dissertation.objects.filter(language="en").count()
-        )
-        vals = [tm, ru, en]
+        lang_counts_chart = _aggregate_language_counts([Article, Book, Dissertation])
+        vals = [
+            lang_counts_chart.get("tm", 0),
+            lang_counts_chart.get("ru", 0),
+            lang_counts_chart.get("en", 0),
+        ]
         labels = ["TM", "RU", "EN"]
         colors = ["#10b981", "#3b82f6", "#7c3aed"]
         ax.pie(
@@ -1127,16 +1275,12 @@ def admin_chart(request, chart_name, fmt="svg"):
     elif chart_name == "new":
         today = timezone.now().date()
         last_30 = today - timedelta(days=29)
-        dates = []
-        counts = []
-        for i in range(30):
-            d = last_30 + timedelta(days=i)
-            c = (
-                Article.objects.filter(publication_date=d).count()
-                + Dissertation.objects.filter(publication_date=d).count()
-            )
-            dates.append(d.strftime("%m-%d"))
-            counts.append(c)
+        counts_map = _publication_counts_map(
+            [Article, Dissertation], "publication_date", last_30
+        )
+        dates, counts = _daily_counts_list_from_map(
+            counts_map, last_30, days=30, date_fmt="%m-%d"
+        )
         ax.plot(dates, counts, color="#3b82f6")
         ax.set_title("New items (last 30 days)")
         ax.set_xticks(dates[::5])
@@ -1145,16 +1289,16 @@ def admin_chart(request, chart_name, fmt="svg"):
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
     elif chart_name == "top":
-        top_list = []
-        for a in Article.objects.order_by("-views")[:5]:
-            top_list.append((a.title, a.views))
-        for b in Book.objects.order_by("-views")[:5]:
-            top_list.append((b.title, b.views))
-        for d in Dissertation.objects.order_by("-views")[:5]:
-            top_list.append((d.title, d.views))
-        top_sorted = sorted(top_list, key=lambda x: x[1], reverse=True)[:8]
-        labels = [t[0][:40] + ("…" if len(t[0]) > 40 else "") for t in top_sorted]
-        vals = [t[1] for t in top_sorted]
+        top_items = _merge_top_items(
+            [(Article, "article"), (Book, "book"), (Dissertation, "dissertation")],
+            per_model=5,
+            total_limit=8,
+            fields=("title", "views"),
+        )
+        labels = [
+            t["title"][:40] + ("…" if len(t["title"]) > 40 else "") for t in top_items
+        ]
+        vals = [t["views"] for t in top_items]
         ax.barh(range(len(vals))[::-1], vals, color="#3b82f6")
         ax.set_yticks(range(len(labels)))
         ax.set_yticklabels(labels[::-1])
@@ -1165,16 +1309,12 @@ def admin_chart(request, chart_name, fmt="svg"):
         # small sparkline for new items (last 30 days)
         today = timezone.now().date()
         last_30 = today - timedelta(days=29)
-        dates = []
-        counts = []
-        for i in range(30):
-            d = last_30 + timedelta(days=i)
-            c = (
-                Article.objects.filter(publication_date=d).count()
-                + Dissertation.objects.filter(publication_date=d).count()
-            )
-            dates.append(d)
-            counts.append(c)
+        counts_map = _publication_counts_map(
+            [Article, Dissertation], "publication_date", last_30
+        )
+        _, counts = _daily_counts_list_from_map(
+            counts_map, last_30, days=30, date_fmt="%Y-%m-%d"
+        )
         ax.plot(counts, color="#3b82f6", linewidth=1)
         ax.axis("off")
         fig.set_size_inches(3, 0.6)
@@ -1203,30 +1343,31 @@ def admin_chart(request, chart_name, fmt="svg"):
         # user registrations per day last 30
         today = timezone.now().date()
         last_30 = today - timedelta(days=29)
+        # aggregate user registrations by date to avoid daily queries
+        user_counts_qs = (
+            User.objects.annotate(d=TruncDate("date_joined"))
+            .filter(d__gte=last_30)
+            .values("d")
+            .annotate(c=Count("id"))
+        )
+        user_map = {r["d"]: r["c"] for r in user_counts_qs}
         counts = []
         for i in range(30):
             d = last_30 + timedelta(days=i)
-            c = (
-                User.objects.filter(date_joined__date=d).count()
-                if hasattr(User._meta.get_field("date_joined"), "auto_now_add") or True
-                else User.objects.filter(date_joined__date=d).count()
-            )
-            counts.append(c)
+            counts.append(user_map.get(d, 0))
         ax.plot(counts, color="#7c3aed", linewidth=1)
         ax.axis("off")
         fig.set_size_inches(3, 0.6)
 
     elif chart_name == "spark_top":
         # tiny horizontal bars for top items (views)
-        top_list = []
-        for a in Article.objects.order_by("-views")[:5]:
-            top_list.append((a.title, a.views))
-        for b in Book.objects.order_by("-views")[:5]:
-            top_list.append((b.title, b.views))
-        for d in Dissertation.objects.order_by("-views")[:5]:
-            top_list.append((d.title, d.views))
-        top_sorted = sorted(top_list, key=lambda x: x[1], reverse=True)[:6]
-        vals = [t[1] for t in top_sorted]
+        top_items = _merge_top_items(
+            [(Article, "article"), (Book, "book"), (Dissertation, "dissertation")],
+            per_model=5,
+            total_limit=6,
+            fields=("title", "views"),
+        )
+        vals = [t["views"] for t in top_items]
         ax.bar(range(len(vals)), vals, color="#3b82f6")
         ax.axis("off")
         fig.set_size_inches(3, 0.6)
