@@ -47,3 +47,4 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
 tzlocal==5.3.1
 PyYAML==6.0.3
+pillow==10.1.1

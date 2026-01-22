@@ -1,0 +1,46 @@
+# Development Dockerfile for SMU Digital Library
+FROM python:3.11-slim
+
+# Install system dependencies including development tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    python3-dev \
+    libpq-dev \
+    curl \
+    git \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY requirements/ /app/requirements/
+
+# Install Python dependencies for development
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements/dev.txt
+
+# Copy application code
+COPY --chown=appuser:appuser . /app/
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/src/staticfiles /app/src/media && \
+    chown -R appuser:appuser /app/logs /app/src/staticfiles /app/src/media && \
+    chmod -R 755 /app/logs /app/src/staticfiles /app/src/media
+
+# Set environment variables for development
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/home/appuser/.local/bin:$PATH" \
+    DJANGO_ENV=development
+
+# Switch to non-root user
+USER appuser
+
+# Development server with auto-reload
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
