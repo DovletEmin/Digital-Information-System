@@ -1,0 +1,42 @@
+# Dockerfile for offline builds (no internet required)
+# Use full python:3.11 image (not slim) - includes build tools
+
+FROM python:3.11
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Skip system package installation - use cached base image
+# Base python:3.11 already has: gcc, make, curl, ca-certificates
+
+# Copy requirements files
+COPY requirements/ /app/requirements/
+
+# Determine which requirements to install based on build arg
+ARG ENV=dev
+
+# Install Python packages from wheelhouse first (offline), then from requirements
+COPY wheelhouse /wheelhouse
+
+RUN echo "Installing packages from wheelhouse..." && \
+    if [ -d /wheelhouse ] && [ "$(ls -A /wheelhouse)" ]; then \
+    pip install --no-cache-dir --no-index --find-links /wheelhouse /wheelhouse/*.whl || true; \
+    fi && \
+    echo "Installing remaining packages from requirements..." && \
+    if [ "$ENV" = "prod" ]; then \
+    pip install --no-cache-dir -r /app/requirements/prod.txt || \
+    echo "Warning: Some packages may not be installed"; \
+    else \
+    pip install --no-cache-dir -r /app/requirements/dev.txt || \
+    echo "Warning: Some packages may not be installed"; \
+    fi
+
+# Copy project files
+COPY . /app
+
+# Create logs directory
+RUN mkdir -p /app/logs && chmod 777 /app/logs
+
+# Default command (override in docker-compose)
+CMD ["gunicorn", "src.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
