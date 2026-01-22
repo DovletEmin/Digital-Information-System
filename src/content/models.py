@@ -128,7 +128,7 @@ class Book(models.Model):
     rating = models.FloatField(default=0.0)
     average_rating = models.FloatField(default=0.0)
     rating_count = models.PositiveIntegerField(default=0)
-    views = models.IntegerField(default=0)
+    views = models.IntegerField(default=0, db_index=True)
     language = models.CharField(
         max_length=2, choices=LANGUAGE_CHOICES, default="tm", db_index=True
     )
@@ -153,7 +153,6 @@ class Dissertation(models.Model):
     rating = models.FloatField(default=0.0)
     average_rating = models.FloatField(default=0.0)
     rating_count = models.PositiveIntegerField(default=0)
-    views = models.IntegerField(default=0)
     language = models.CharField(
         max_length=2, choices=LANGUAGE_CHOICES, default="tm", db_index=True
     )

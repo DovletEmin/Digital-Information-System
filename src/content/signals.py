@@ -3,6 +3,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .models import Article, Book, Dissertation, ContentRating
 from .tasks import index_object_task, delete_object_task
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,12 @@ def article_deleted(sender, instance, **kwargs):
         )
     except Exception:
         logger.exception("Failed to enqueue delete task for Article id=%s", instance.id)
+    # bump global cache version to invalidate per-object/list caches
+    try:
+        v = cache.get("content_cache_version") or 0
+        cache.set("content_cache_version", int(v) + 1)
+    except Exception:
+        pass
 
 
 @receiver(post_save, sender=Book)
@@ -45,6 +52,11 @@ def book_deleted(sender, instance, **kwargs):
         )
     except Exception:
         logger.exception("Failed to enqueue delete task for Book id=%s", instance.id)
+    try:
+        v = cache.get("content_cache_version") or 0
+        cache.set("content_cache_version", int(v) + 1)
+    except Exception:
+        pass
 
 
 @receiver(post_save, sender=Dissertation)
@@ -69,6 +81,11 @@ def dissertation_deleted(sender, instance, **kwargs):
         logger.exception(
             "Failed to enqueue delete task for Dissertation id=%s", instance.id
         )
+    try:
+        v = cache.get("content_cache_version") or 0
+        cache.set("content_cache_version", int(v) + 1)
+    except Exception:
+        pass
 
 
 # When a rating is added/updated, reindex the corresponding content
@@ -85,6 +102,12 @@ def content_rating_saved(sender, instance, **kwargs):
                 index_object_task.delay(Model._meta.app_label, Model.__name__, cid)
             except Model.DoesNotExist:
                 logger.warning("Rated object not found for indexing: %s id=%s", ct, cid)
+        # rating change affects aggregated values and search ranking -> bump cache
+        try:
+            v = cache.get("content_cache_version") or 0
+            cache.set("content_cache_version", int(v) + 1)
+        except Exception:
+            pass
     except Exception:
         logger.exception(
             "Failed handling ContentRating save for id=%s",
