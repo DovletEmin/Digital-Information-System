@@ -86,80 +86,90 @@ class Command(BaseCommand):
             total = Model.objects.count()
             self.stdout.write(f"Индексируем {total} записей...")
 
-            for obj in Model.objects.iterator():
-                try:
-                    doc = {
-                        "title": obj.title,
-                        "author": obj.author,
-                        "language": obj.language,
-                        "average_rating": round(float(obj.average_rating), 2),
-                        "rating_count": obj.rating_count,
-                        "views": obj.views,
-                    }
-
-                    if isinstance(obj, Article):
-                        doc.update(
-                            {
-                                "content": obj.content,
-                                "author_workplace": obj.author_workplace or None,
-                                "type": obj.type,
-                                "publication_date": obj.publication_date.isoformat()
-                                if obj.publication_date
-                                else None,
-                                "source_name": obj.source_name,
-                                "source_url": obj.source_url,
-                                "newspaper_or_journal": obj.newspaper_or_journal,
-                                "image": obj.image.url if obj.image else None,
-                            }
-                        )
-
-                    if isinstance(obj, Book):
-                        doc.update(
-                            {
-                                "content": obj.content or None,
-                                "epub_file": obj.epub_file.url
-                                if obj.epub_file
-                                else None,
-                                "cover_image": obj.cover_image.url
-                                if obj.cover_image
-                                else None,
-                            }
-                        )
-
-                    if isinstance(obj, Dissertation):
-                        doc.update(
-                            {
-                                "content": obj.content,
-                                "author_workplace": obj.author_workplace or None,
-                                "publication_date": obj.publication_date.isoformat()
-                                if obj.publication_date
-                                else None,
-                            }
-                        )
-
-                    # ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: проверяем, есть ли parent!
-                    doc["categories"] = [
-                        {
-                            "id": cat.id,
-                            "name": cat.name,
-                            "parent": getattr(cat, "parent_id", None)
-                            or None,  # ← БЕЗОПАСНО!
+            # Process in chunks and prefetch related categories to avoid N+1 queries
+            chunk_size = 500
+            pks_qs = Model.objects.values_list("pk", flat=True).order_by("pk")
+            for start in range(0, total, chunk_size):
+                batch_pks = list(pks_qs[start : start + chunk_size])
+                if not batch_pks:
+                    continue
+                batch_qs = Model.objects.filter(pk__in=batch_pks).prefetch_related(
+                    "categories"
+                )
+                for obj in batch_qs:
+                    try:
+                        doc = {
+                            "title": obj.title,
+                            "author": obj.author,
+                            "language": obj.language,
+                            "average_rating": round(float(obj.average_rating), 2),
+                            "rating_count": obj.rating_count,
+                            "views": obj.views,
                         }
-                        for cat in obj.categories.all()
-                    ]
 
-                    es.index(index=index_name, id=obj.id, body=doc)
-                    count += 1
+                        if isinstance(obj, Article):
+                            doc.update(
+                                {
+                                    "content": obj.content,
+                                    "author_workplace": obj.author_workplace or None,
+                                    "type": obj.type,
+                                    "publication_date": obj.publication_date.isoformat()
+                                    if obj.publication_date
+                                    else None,
+                                    "source_name": obj.source_name,
+                                    "source_url": obj.source_url,
+                                    "newspaper_or_journal": obj.newspaper_or_journal,
+                                    "image": obj.image.url if obj.image else None,
+                                }
+                            )
 
-                    if count % 50 == 0:
-                        self.stdout.write(f"   → {count}/{total}")
+                        if isinstance(obj, Book):
+                            doc.update(
+                                {
+                                    "content": obj.content or None,
+                                    "epub_file": obj.epub_file.url
+                                    if obj.epub_file
+                                    else None,
+                                    "cover_image": obj.cover_image.url
+                                    if obj.cover_image
+                                    else None,
+                                }
+                            )
 
-                except Exception as e:
-                    self.stdout.write(
-                        self.style.ERROR(
-                            f"Ошибка при {obj.__class__.__name__} ID={obj.id}: {e}"
+                        if isinstance(obj, Dissertation):
+                            doc.update(
+                                {
+                                    "content": obj.content,
+                                    "author_workplace": obj.author_workplace or None,
+                                    "publication_date": obj.publication_date.isoformat()
+                                    if obj.publication_date
+                                    else None,
+                                }
+                            )
+
+                        # ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: проверяем, есть ли parent!
+                        doc["categories"] = [
+                            {
+                                "id": cat.id,
+                                "name": cat.name,
+                                "parent": getattr(cat, "parent_id", None)
+                                or None,  # ← БЕЗОПАСНО!
+                            }
+                            for cat in obj.categories.all()
+                        ]
+
+                        es.index(index=index_name, id=obj.id, body=doc)
+                        count += 1
+
+                        if count % 50 == 0:
+                            self.stdout.write(f"   → {count}/{total}")
+
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.ERROR(
+                                f"Ошибка при {obj.__class__.__name__} ID={obj.id}: {e}"
+                            )
                         )
-                    )
 
             es.indices.refresh(index=index_name)
             self.stdout.write(

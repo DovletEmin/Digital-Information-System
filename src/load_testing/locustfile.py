@@ -33,18 +33,6 @@ class WebsiteUser(HttpUser):
 
     # High traffic: main pages and API list
 
-    @task(4)
-    def api_list_books(self):
-        self.client.get("/api/books/")
-
-    @task(3)
-    def api_list_articles(self):
-        self.client.get("/api/articles/")
-
-    @task(2)
-    def api_list_dissertations(self):
-        self.client.get("/api/dissertations/")
-
     @task(2)
     def api_list_dissertation_categories(self):
         self.client.get("/api/dissertation-categories/")
@@ -56,6 +44,33 @@ class WebsiteUser(HttpUser):
     @task(2)
     def api_list_book_categories(self):
         self.client.get("/api/book-categories/")
+
+    @task(2)
+    def api_list_article_categories_id(self):
+        category_id = random.randint(1, 2)
+        self.client.get(f"/api/article-categories/{category_id}/")
+
+    @task(2)
+    def api_list_book_categories_id(self):
+        category_id = random.randint(1, 2)
+        self.client.get(f"/api/book-categories/{category_id}/")
+
+    @task(2)
+    def api_list_dissertation_categories_id(self):
+        category_id = random.randint(1, 2)
+        self.client.get(f"/api/dissertation-categories/{category_id}/")
+
+    @task(4)
+    def api_list_books(self):
+        self.client.get("/api/books/")
+
+    @task(3)
+    def api_list_articles(self):
+        self.client.get("/api/articles/")
+
+    @task(2)
+    def api_list_dissertations(self):
+        self.client.get("/api/dissertations/")
 
     # Details and related actions
     @task(2)
