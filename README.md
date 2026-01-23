@@ -40,6 +40,7 @@ Professional digital library system for Sarynyýazov Myrat University with full-
 ### Prerequisites
 
 - Docker & Docker Compose
+- Python 3.10.12+ (if running locally without Docker)
 
 ### Installation
 

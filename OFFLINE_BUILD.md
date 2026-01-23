@@ -189,5 +189,5 @@ docker load -i /mnt/d/backup/docker-images-smu.tar.gz
 ---
 
 **Статус**: ✅ Ready for offline deployment  
-**Tested**: Python 3.11, Django 5.2.7, PostgreSQL 15  
+**Tested**: Python 3.10.12, Django 4.2.11, PostgreSQL 15  
 **Internet required**: ❌ No (after initial setup)

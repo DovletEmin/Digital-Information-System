@@ -189,7 +189,7 @@ cp requirements.txt requirements.txt.backup
 pip list --outdated
 
 # 3. Обновить конкретный пакет
-pip install --upgrade django==5.2.8
+pip install --upgrade django==4.2.12
 pip freeze | grep Django >> requirements.txt
 
 # 4. Проверить совместимость

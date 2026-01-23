@@ -1,38 +1,39 @@
 # =============================================================================
 # SMU Digital Library - Unified Requirements
+# Compatible with Python 3.10.12+
 # All dependencies for development and production
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # Core Django Framework
 # -----------------------------------------------------------------------------
-Django==5.2.7
-asgiref==3.10.0
-sqlparse==0.5.3
-tzdata==2025.2
+Django==4.2.11
+asgiref==3.7.2
+sqlparse==0.4.4
+tzdata==2024.1
 
 # -----------------------------------------------------------------------------
 # Django REST Framework & API
 # -----------------------------------------------------------------------------
-djangorestframework==3.16.1
-djangorestframework-simplejwt==5.5.1
-drf-yasg==1.21.11
-uritemplate==4.2.0
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+drf-yasg==1.21.7
+uritemplate==4.1.1
 inflection==0.5.1
-PyYWT==2.10.1
+PyJWT==2.8.0
 
 # -----------------------------------------------------------------------------
 # Django Extensions & Plugins
 # -----------------------------------------------------------------------------
-django-celery-beat==2.8.1
-django-ckeditor==6.7.3
-django-cors-headers==4.9.0
-django-filter==25.2
-django-js-asset==3.1.2
-django-redis==6.0.0
-django-timezone-field==7.2.1
+django-celery-beat==2.5.0
+django-ckeditor==6.7.0
+django-cors-headers==4.3.1
+django-filter==23.5
+django-js-asset==2.2.0
+django-redis==5.4.0
+django-timezone-field==6.1.0
 django-extensions==3.2.3
-django-silk==4.0.0
+django-silk==5.0.4
 
 # -----------------------------------------------------------------------------
 # Database
@@ -42,11 +43,11 @@ psycopg2-binary==2.9.11
 # -----------------------------------------------------------------------------
 # Celery & Task Queue
 # -----------------------------------------------------------------------------
-celery==5.6.0
-redis==7.1.0
-amqp==5.3.1
-billiard==4.2.4
-kombu==5.6.1
+celery==5.3.6
+redis==5.0.1
+amqp==5.2.0
+billiard==4.2.0
+kombu==5.3.5
 vine==5.1.0
 click==8.3.1
 click-didyoumean==0.3.1
@@ -60,154 +61,154 @@ cron_descriptor==2.0.6
 # -----------------------------------------------------------------------------
 # Search - Elasticsearch
 # -----------------------------------------------------------------------------
-elasticsearch==8.19.2
-elasticsearch-dsl==8.15.0
-elastic-transport==8.17.1
+elasticsearch==8.12.1
+elasticsearch-dsl==8.12.0
+elastic-transport==8.12.0
 
 # -----------------------------------------------------------------------------
 # JSON Performance
 # -----------------------------------------------------------------------------
-orjson==3.9.0
+orjson==3.9.15
 djangorestframework-orjson==0.1.3
 
 # -----------------------------------------------------------------------------
 # Web Servers & ASGI/WSGI
 # -----------------------------------------------------------------------------
-uvicorn[standard]==0.34.0
-gunicorn==23.0.0
-gevent==25.9.1
-greenlet==3.3.0
-httptools==0.7.1
-watchfiles==1.1.1
-websockets==15.0.1
-h11==0.16.0
+uvicorn[standard]==0.27.1
+gunicorn==21.2.0
+gevent==24.2.1
+greenlet==3.0.3
+httptools==0.6.1
+watchfiles==0.21.0
+websockets==12.0
+h11==0.14.0
 
 # -----------------------------------------------------------------------------
 # Static Files & Media
 # -----------------------------------------------------------------------------
-whitenoise==6.11.0
-pillow==12.0.0
+whitenoise==6.6.0
+pillow==10.2.0
 
 # -----------------------------------------------------------------------------
 # Utilities & Date/Time
 # -----------------------------------------------------------------------------
-python-dateutil==2.9.0.post0
-pytz==2025.2
-tzlocal==5.3.1
-PyYAML==6.0.3
-python-dotenv==1.2.1
-six==1.17.0
+python-dateutil==2.8.2
+pytz==2024.1
+tzlocal==5.2
+PyYAML==6.0.1
+python-dotenv==1.0.1
+six==1.16.0
 
 # -----------------------------------------------------------------------------
 # Monitoring & Error Tracking (Production)
 # -----------------------------------------------------------------------------
-sentry-sdk==2.22.0
+sentry-sdk==1.40.6
 
 # -----------------------------------------------------------------------------
 # Testing & Quality Assurance
 # -----------------------------------------------------------------------------
-pytest==9.0.2
-pytest-django==4.9.0
-pytest-cov==6.0.0
-factory-boy==3.3.1
-pluggy==1.6.0
-iniconfig==2.3.0
-exceptiongroup==1.3.1
-packaging==25.0
+pytest==7.4.4
+pytest-django==4.7.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+pluggy==1.3.0
+iniconfig==2.0.0
+exceptiongroup==1.2.0
+packaging==23.2
 
 # -----------------------------------------------------------------------------
 # Code Quality & Formatting
 # -----------------------------------------------------------------------------
-ruff==0.14.8
-autopep8==2.3.2
+ruff==0.1.15
+autopep8==2.0.4
 
 # -----------------------------------------------------------------------------
 # Load Testing
 # -----------------------------------------------------------------------------
-locust==2.42.6
-locust-cloud==1.30.0
-Flask==3.1.2
-flask-cors==6.0.2
+locust==2.20.1
+locust-cloud==1.0.2
+Flask==3.0.2
+flask-cors==4.0.0
 Flask-Login==0.6.3
-Werkzeug==3.1.4
-geventhttpclient==2.3.7
-msgpack==1.1.2
-pyzmq==27.1.0
-Jinja2==3.1.6
-MarkupSafe==3.0.3
-itsdangerous==2.2.0
-blinker==1.9.0
-ConfigArgParse==1.7.1
+Werkzeug==3.0.1
+geventhttpclient==2.0.11
+msgpack==1.0.7
+pyzmq==25.1.2
+Jinja2==3.1.3
+MarkupSafe==2.1.5
+itsdangerous==2.1.2
+blinker==1.7.0
+ConfigArgParse==1.7
 
 # -----------------------------------------------------------------------------
 # Interactive Development (IPython)
 # -----------------------------------------------------------------------------
-ipython==8.31.0
+ipython==8.18.1
 matplotlib==3.8.2
 numpy==1.26.4
-Pygments==2.19.2
+Pygments==2.17.2
 
 # -----------------------------------------------------------------------------
 # HTTP Clients & Networking
 # -----------------------------------------------------------------------------
-requests==2.32.4
-urllib3==2.5.0
-certifi==2025.11.12
-charset-normalizer==3.4.4
-idna==3.11
+requests==2.31.0
+urllib3==2.2.1
+certifi==2024.2.2
+charset-normalizer==3.3.2
+idna==3.6
 
 # -----------------------------------------------------------------------------
 # WebSockets & Real-time
 # -----------------------------------------------------------------------------
-python-socketio==5.15.1
-python-engineio==4.12.3
-simple-websocket==1.1.0
-websocket-client==1.9.0
-bidict==0.23.1
+python-socketio==5.11.1
+python-engineio==4.9.0
+simple-websocket==1.0.0
+websocket-client==1.7.0
+bidict==0.22.1
 
 # -----------------------------------------------------------------------------
 # System & Process Utilities
 # -----------------------------------------------------------------------------
-psutil==7.2.0
-setuptools==80.9.0
+psutil==5.9.8
+setuptools==69.1.1
 
 # -----------------------------------------------------------------------------
 # Compression
 # -----------------------------------------------------------------------------
-brotli==1.2.0
+brotli==1.1.0
 
 # -----------------------------------------------------------------------------
 # Type Hints & Extensions
 # -----------------------------------------------------------------------------
-typing_extensions==4.15.0
+typing_extensions==4.9.0
 
 # -----------------------------------------------------------------------------
 # Other Dependencies
 # -----------------------------------------------------------------------------
 colorama==0.4.6
-pycparser==2.23
-cffi==2.0.0
-platformdirs==4.5.1
-anyio==4.12.0
+pycparser==2.21
+cffi==1.16.0
+platformdirs==4.2.0
+anyio==4.3.0
 
 # -----------------------------------------------------------------------------
 # Plotting & Visualization (for analytics/debugging)
 # -----------------------------------------------------------------------------
-contourpy==1.3.2
+contourpy==1.2.0
 cycler==0.12.1
-fonttools==4.61.1
-kiwisolver==1.4.9
-pyparsing==3.2.5
+fonttools==4.47.2
+kiwisolver==1.4.5
+pyparsing==3.1.1
 
 # -----------------------------------------------------------------------------
 # Windows Specific
 # -----------------------------------------------------------------------------
-pywin32==311; sys_platform == 'win32'
+pywin32==306; sys_platform == 'win32'
 
 # -----------------------------------------------------------------------------
 # WSGI Server (alternative)
 # -----------------------------------------------------------------------------
-waitress==3.0.2
-wsproto==1.3.2
-zope.event==6.1
-zope.interface==8.1.1
+waitress==2.1.2
+wsproto==1.2.0
+zope.event==5.0
+zope.interface==6.1

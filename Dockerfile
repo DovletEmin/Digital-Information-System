@@ -1,5 +1,6 @@
 # Production-ready Dockerfile for SMU Digital Library
-FROM python:3.11-slim as base
+# Compatible with Python 3.10.12
+FROM python:3.10-slim as base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
