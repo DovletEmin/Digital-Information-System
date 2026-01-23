@@ -18,7 +18,7 @@ WSL не имеет интернета, поэтому Docker образы ну�
 ```powershell
 # В Windows PowerShell (открыть на Windows, не в WSL!)
 cd C:\Users\Emin\Desktop\SMU
-.\scripts\prepare_offline.ps1   
+.\scripts\prepare_offline.ps1
 ```
 
 Или вручную:
@@ -147,7 +147,7 @@ docker-compose build --no-cache
 ls wheelhouse/*.whl | wc -l  # Должно быть 123
 
 # Если меньше - скачать снова на машине с интернетом
-pip download -r requirements/dev.txt -d wheelhouse
+pip download -r requirements.txt -d wheelhouse
 ```
 
 ## 📝 Notes

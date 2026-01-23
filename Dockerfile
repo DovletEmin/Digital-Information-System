@@ -1,4 +1,4 @@
-# Multi-stage build for production optimization
+# Production-ready Dockerfile for SMU Digital Library
 FROM python:3.11-slim as base
 
 # Install system dependencies
@@ -16,18 +16,12 @@ RUN useradd -m -u 1000 appuser
 # Set working directory
 WORKDIR /app
 
-# Copy requirements
-COPY requirements/ /app/requirements/
+# Copy requirements file
+COPY requirements.txt /app/requirements.txt
 
-# Install Python dependencies based on environment
-ARG ENV=prod
-RUN if [ "$ENV" = "prod" ]; then \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /app/requirements/prod.txt; \
-    else \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /app/requirements/dev.txt; \
-    fi
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy application code
 COPY --chown=appuser:appuser . /app/
@@ -44,6 +38,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Switch to non-root user
 USER appuser
+
+# Expose port
+EXPOSE 8000
 
 # Default command
 CMD ["gunicorn", "src.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

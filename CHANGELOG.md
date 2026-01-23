@@ -107,7 +107,7 @@ fetch("/api/v1/articles/");
 3. Install new requirements:
 
 ```bash
-pip install -r requirements/dev.txt
+pip install -r requirements.txt
 ```
 
 #### For Production

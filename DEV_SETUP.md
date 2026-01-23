@@ -47,16 +47,16 @@ DJANGO_ENV=development
 
 ```bash
 # Сборка образов
-docker-compose -f docker-compose.dev.yml build
+docker-compose build
 
 # Запуск всех сервисов
-docker-compose -f docker-compose.dev.yml up
+docker-compose up
 ```
 
 Или в фоновом режиме:
 
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose up -d
 ```
 
 ### 3. Доступ к приложению
@@ -75,77 +75,77 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ```bash
 # Остановить все сервисы
-docker-compose -f docker-compose.dev.yml down
+docker-compose down
 
 # Остановить и удалить volumes
-docker-compose -f docker-compose.dev.yml down -v
+docker-compose down -v
 
 # Перезапустить конкретный сервис
-docker-compose -f docker-compose.dev.yml restart web
+docker-compose restart web
 
 # Просмотр логов
-docker-compose -f docker-compose.dev.yml logs -f
+docker-compose logs -f
 
 # Логи конкретного сервиса
-docker-compose -f docker-compose.dev.yml logs -f web
+docker-compose logs -f web
 ```
 
 ### Работа с Django
 
 ```bash
 # Создать суперпользователя
-docker-compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
+docker-compose exec web python manage.py createsuperuser
 
 # Выполнить миграции
-docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
+docker-compose exec web python manage.py migrate
 
 # Собрать статику
-docker-compose -f docker-compose.dev.yml exec web python manage.py collectstatic --noinput
+docker-compose exec web python manage.py collectstatic --noinput
 
 # Запустить shell
-docker-compose -f docker-compose.dev.yml exec web python manage.py shell
+docker-compose exec web python manage.py shell
 
 # Создать миграции
-docker-compose -f docker-compose.dev.yml exec web python manage.py makemigrations
+docker-compose exec web python manage.py makemigrations
 
 # Загрузить тестовые данные
-docker-compose -f docker-compose.dev.yml exec web python manage.py loaddata fixtures/initial_data.json
+docker-compose exec web python manage.py loaddata fixtures/initial_data.json
 ```
 
 ### Работа с Elasticsearch
 
 ```bash
 # Переиндексация поиска
-docker-compose -f docker-compose.dev.yml exec web python manage.py search_index --rebuild
+docker-compose exec web python manage.py search_index --rebuild
 
 # Обновить индексы
-docker-compose -f docker-compose.dev.yml exec web python manage.py search_index --update
+docker-compose exec web python manage.py search_index --update
 ```
 
 ### Работа с тестами
 
 ```bash
 # Запустить все тесты
-docker-compose -f docker-compose.dev.yml exec web pytest
+docker-compose exec web pytest
 
 # Тесты с покрытием
-docker-compose -f docker-compose.dev.yml exec web pytest --cov=content --cov-report=html
+docker-compose exec web pytest --cov=content --cov-report=html
 
 # Запустить конкретный тест
-docker-compose -f docker-compose.dev.yml exec web pytest content/tests/test_models.py
+docker-compose exec web pytest content/tests/test_models.py
 ```
 
 ### Отладка
 
 ```bash
 # Войти в контейнер web
-docker-compose -f docker-compose.dev.yml exec web bash
+docker-compose exec web bash
 
 # Войти как root (если нужны права администратора)
-docker-compose -f docker-compose.dev.yml exec -u root web bash
+docker-compose exec -u root web bash
 
 # Просмотр процессов в контейнере
-docker-compose -f docker-compose.dev.yml exec web ps aux
+docker-compose exec web ps aux
 
 # Мониторинг ресурсов
 docker stats
@@ -155,18 +155,18 @@ docker stats
 
 ```bash
 # Подключиться к PostgreSQL
-docker-compose -f docker-compose.dev.yml exec db psql -U smu -d smu
+docker-compose exec db psql -U smu -d smu
 
 # Создать дамп базы
-docker-compose -f docker-compose.dev.yml exec db pg_dump -U smu smu > backup.sql
+docker-compose exec db pg_dump -U smu smu > backup.sql
 
 # Восстановить дамп
-docker-compose -f docker-compose.dev.yml exec -T db psql -U smu -d smu < backup.sql
+docker-compose exec -T db psql -U smu -d smu < backup.sql
 
 # Сброс базы данных
-docker-compose -f docker-compose.dev.yml down -v
-docker-compose -f docker-compose.dev.yml up -d db
-docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
+docker-compose down -v
+docker-compose up -d db
+docker-compose exec web python manage.py migrate
 ```
 
 ## Особенности dev окружения
@@ -207,13 +207,13 @@ http://localhost:8000/silk/
 
 ```bash
 # Проверить логи
-docker-compose -f docker-compose.dev.yml logs
+docker-compose logs
 
 # Пересобрать образы
-docker-compose -f docker-compose.dev.yml build --no-cache
+docker-compose build --no-cache
 
 # Очистить всё и начать заново
-docker-compose -f docker-compose.dev.yml down -v
+docker-compose down -v
 docker system prune -a
 ```
 
@@ -221,9 +221,9 @@ docker system prune -a
 
 ```bash
 # Сбросить миграции (ВНИМАНИЕ: удалит данные)
-docker-compose -f docker-compose.dev.yml down -v
-docker-compose -f docker-compose.dev.yml up -d db
-docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
+docker-compose down -v
+docker-compose up -d db
+docker-compose exec web python manage.py migrate
 ```
 
 ### Elasticsearch не запускается
@@ -252,7 +252,7 @@ ports:
 
 ```bash
 # Очистить старые логи
-docker-compose -f docker-compose.dev.yml logs --tail=100
+docker-compose logs --tail=100
 ```
 
 ### Мониторинг ресурсов
@@ -274,3 +274,4 @@ docker-compose up -d
 ```
 
 См. [README.md](README.md) для инструкций по production.
+

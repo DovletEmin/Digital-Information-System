@@ -24,8 +24,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        ENV: prod
     command: celery -A src worker --loglevel=info --concurrency=4
     working_dir: /app/src
     networks:
@@ -39,7 +37,6 @@ services:
       CELERY_BROKER_URL: "redis://redis:6379/0"
       ELASTICSEARCH_URL: "http://elasticsearch:9200"
       PYTHONUNBUFFERED: "1"
-      DJANGO_ENV: "prod"
     depends_on:
       db:
         condition: service_healthy
@@ -48,21 +45,11 @@ services:
       elasticsearch:
         condition: service_healthy
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
 
   celery-beat:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        ENV: prod
     working_dir: /app/src
     networks:
       - smu_network
@@ -74,7 +61,6 @@ services:
       CELERY_BROKER_URL: "redis://redis:6379/0"
       ELASTICSEARCH_URL: "http://elasticsearch:9200"
       PYTHONUNBUFFERED: "1"
-      DJANGO_ENV: "prod"
     command: celery -A src beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     depends_on:
       db:
@@ -86,11 +72,6 @@ services:
       elasticsearch:
         condition: service_healthy
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
 
   elasticsearch:
     image: elasticsearch:7.17.13
@@ -117,14 +98,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
 
   db:
     image: postgres:15-alpine
@@ -146,21 +119,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
 
   web:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        ENV: prod
     command: >
       sh -c "
         python manage.py migrate --noinput &&
@@ -178,7 +141,6 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
-      DJANGO_ENV: "prod"
       ELASTICSEARCH_URL: "http://elasticsearch:9200"
       REDIS_URL: "redis://redis:6379/1"
       CELERY_BROKER_URL: "redis://redis:6379/0"
@@ -198,14 +160,6 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
 
 volumes:
   esdata:

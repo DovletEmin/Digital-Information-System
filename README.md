@@ -40,10 +40,6 @@ Professional digital library system for Sarynyýazov Myrat University with full-
 ### Prerequisites
 
 - Docker & Docker Compose
-- Python 3.11+ (for local development)
-- PostgreSQL 15+
-- Elasticsearch 7.17+
-- Redis 7+
 
 ### Installation
 
@@ -64,13 +60,13 @@ cp .env.example .env
 3. **Generate a strong SECRET_KEY**
 
 ```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
 4. **Build and start services**
 
 ```bash
-docker-compose up --build
+docker-compose up -d --build
 ```
 
 5. **Create superuser**
@@ -84,6 +80,10 @@ docker-compose exec web python manage.py createsuperuser
 - API: http://localhost:8000/api/v1/
 - Admin: http://localhost:8000/admin/
 - API Docs: http://localhost:8000/api/docs/swagger/
+
+### Деплой на сервере
+
+Полная инструкция по деплою на production сервере: [DEPLOY.md](DEPLOY.md)
 
 ## 📚 API Documentation
 
@@ -180,10 +180,7 @@ smu-library/
 │       │   └── prod.py             # Production
 │       ├── urls.py
 │       └── wsgi.py/asgi.py
-├── requirements/
-│   ├── base.txt                    # Base dependencies
-│   ├── dev.txt                     # Dev dependencies
-│   └── prod.txt                    # Prod dependencies
+├── requirements.txt                # All dependencies
 ├── docker-compose.yml
 ├── Dockerfile
 └── README.md
@@ -201,7 +198,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 2. **Install dependencies**
 
 ```bash
-pip install -r requirements/dev.txt
+pip install -r requirements.txt
 ```
 
 3. **Set up database**
