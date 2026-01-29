@@ -64,7 +64,7 @@ class ContentSearchView(APIView):
     Implements caching and proper error handling.
     """
 
-    throttle_classes = [SearchRateThrottle]
+    # throttle_classes = [SearchRateThrottle]
 
     def get(self, request):
         """Handle search requests"""

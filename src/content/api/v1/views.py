@@ -210,7 +210,7 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = UserSerializer
-    throttle_classes = [AuthRateThrottle]
+    # throttle_classes = [AuthRateThrottle]
 
 
 class ToggleBookmarkView(APIView):
