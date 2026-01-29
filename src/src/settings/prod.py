@@ -47,6 +47,12 @@ LOGGING["root"]["level"] = "WARNING"
 LOGGING["loggers"]["django"]["level"] = "WARNING"
 LOGGING["loggers"]["content"]["level"] = "INFO"
 
+# Disable Silk in production (removes verbose SQL debug logs)
+if "silk" in INSTALLED_APPS:
+    INSTALLED_APPS.remove("silk")
+if "silk.middleware.SilkyMiddleware" in MIDDLEWARE:
+    MIDDLEWARE.remove("silk.middleware.SilkyMiddleware")
+
 # Email configuration for production
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")

@@ -123,6 +123,9 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
     "EXCEPTION_HANDLER": "content.utils.exception_handlers.custom_exception_handler",
+    # Explicitly disable throttling
+    "DEFAULT_THROTTLE_CLASSES": [],
+    "DEFAULT_THROTTLE_RATES": {},
 }
 
 # JWT Configuration

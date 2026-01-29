@@ -61,6 +61,7 @@ class ContentSearchView(APIView):
     Full-text search across all content types using Elasticsearch.
     Implements caching and proper error handling.
     """
+    throttle_classes = []  # Explicitly disable throttling for search
 
     def get(self, request):
         """Handle search requests"""
