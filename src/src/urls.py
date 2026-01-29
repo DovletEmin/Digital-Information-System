@@ -42,7 +42,7 @@ urlpatterns = [
     path("api/v1/", include("content.api.v1.urls", namespace="api_v1")),
     # API Documentation
     path(
-        "api/docs/swagger/",
+        "swagger/",
         schema_view.with_ui("swagger", cache_timeout=0),
         name="swagger",
     ),
