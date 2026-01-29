@@ -39,14 +39,6 @@ REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = [
     "rest_framework_orjson.renderers.ORJSONRenderer",
 ]
 
-# Stricter throttling in production
-# REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
-#     "anon": "50/hour",
-#     "user": "500/hour",
-#     "search": "20/minute",
-#     "auth": "3/minute",
-# }
-
 # Production cache settings (longer TTL)
 CACHES["default"]["TIMEOUT"] = 300  # 5 minutes default
 

@@ -11,8 +11,6 @@ from elasticsearch import Elasticsearch
 import logging
 from datetime import datetime
 
-from content.utils.throttles import SearchRateThrottle
-
 logger = logging.getLogger(__name__)
 
 
@@ -63,8 +61,6 @@ class ContentSearchView(APIView):
     Full-text search across all content types using Elasticsearch.
     Implements caching and proper error handling.
     """
-
-    # throttle_classes = [SearchRateThrottle]
 
     def get(self, request):
         """Handle search requests"""

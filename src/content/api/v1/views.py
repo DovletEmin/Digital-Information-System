@@ -46,7 +46,6 @@ from content.utils.mixins import (
     CachedRetrieveMixin,
     ContentListOptimizationMixin,
 )
-from content.utils.throttles import SearchRateThrottle, AuthRateThrottle
 
 
 # Optimized category querysets
@@ -210,7 +209,6 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = UserSerializer
-    # throttle_classes = [AuthRateThrottle]
 
 
 class ToggleBookmarkView(APIView):

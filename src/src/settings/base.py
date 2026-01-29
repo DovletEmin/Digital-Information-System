@@ -122,16 +122,6 @@ REST_FRAMEWORK = {
         "rest_framework_orjson.renderers.ORJSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
-    # "DEFAULT_THROTTLE_CLASSES": [
-    #     "rest_framework.throttling.AnonRateThrottle",
-    #     "rest_framework.throttling.UserRateThrottle",
-    # ],
-    # "DEFAULT_THROTTLE_RATES": {
-    #     "anon": "100/hour",
-    #     "user": "1000/hour",
-    #     "search": "30/minute",
-    #     "auth": "5/minute",
-    # },
     "EXCEPTION_HANDLER": "content.utils.exception_handlers.custom_exception_handler",
 }
 
