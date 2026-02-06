@@ -1,0 +1,76 @@
+{
+  "nav": {
+    "articles": "Makalalar",
+    "books": "Kitaplar",
+    "dissertations": "Dissertasiýalar",
+    "search": "Gözleg",
+    "bookmarks": "Saýlanlar",
+    "profile": "Profil"
+  },
+  "auth": {
+    "login": "Giriş",
+    "logout": "Çykmak",
+    "register": "Hasaba durmak",
+    "username": "Ulanyjy ady",
+    "email": "E-poçta",
+    "password": "Parol",
+    "passwordConfirm": "Paroly tassykla",
+    "loginButton": "Girmek",
+    "registerButton": "Hasaba durmak",
+    "forgotPassword": "Paroly ýatdan çykardyňyzmy?",
+    "haveAccount": "Hasabyňyz barmy?",
+    "noAccount": "Hasabyňyz ýokmy?"
+  },
+  "search": {
+    "placeholder": "Gözleg...",
+    "results": "Netijeleri",
+    "noResults": "Netije tapylmady",
+    "searchFor": "Gözleg:"
+  },
+  "content": {
+    "author": "Awtor",
+    "publishedDate": "Çap edilen senesi",
+    "views": "görnüşler",
+    "rating": "Baha",
+    "categories": "Kategoriýalar",
+    "description": "Beýany",
+    "rateArticle": "Makala baha beriň",
+    "noArticles": "Makala tapylmady",
+    "noBooks": "Kitap tapylmady",
+    "noDissertations": "Dissertasiýa tapylmady",
+    "tryDifferentFilter": "Başga süzgüç saýlap görüň",
+    "articleNotFound": "Makala tapylmady",
+    "bookNotFound": "Kitap tapylmady",
+    "dissertationNotFound": "Dissertasiýa tapylmady"
+  },
+  "categories": {
+    "title": "Kategoriýalar",
+    "all": "Ählisi"
+  },
+  "filters": {
+    "all": "Ählisi",
+    "local": "Ýurdumyzda",
+    "foreign": "Daşary ýurtlarda",
+    "language": "Dil",
+    "date": "Senesi"
+  },
+  "common": {
+    "back": "Yza",
+    "save": "Ýatda sakla",
+    "cancel": "Ýatyrmak",
+    "delete": "Pozuň",
+    "edit": "Redaktirle",
+    "loading": "Ýüklenilýär...",
+    "clearFilter": "Süzgüçleri arassala"
+  },
+  "footer": {
+    "about": "Hakynda",
+    "aboutText": "Sarynyýazov Myrat adyndaky Uniwersitetiň sanly kitaphanasy",
+    "quickLinks": "Çalt baglanyşyklar",
+    "support": "Goldaw",
+    "contact": "Habarlaşmak",
+    "help": "Kömek",
+    "faq": "Soraglar",
+    "copyright": "SMU Sanly kitaphanasy. Ähli hukuklary goralýar."
+  }
+}

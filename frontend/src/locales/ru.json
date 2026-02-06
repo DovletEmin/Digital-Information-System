@@ -1,0 +1,76 @@
+{
+  "nav": {
+    "articles": "Статьи",
+    "books": "Книги",
+    "dissertations": "Диссертации",
+    "search": "Поиск",
+    "bookmarks": "Избранное",
+    "profile": "Профиль"
+  },
+  "auth": {
+    "login": "Вход",
+    "logout": "Выйти",
+    "register": "Регистрация",
+    "username": "Имя пользователя",
+    "email": "Электронная почта",
+    "password": "Пароль",
+    "passwordConfirm": "Подтвердите пароль",
+    "loginButton": "Войти",
+    "registerButton": "Зарегистрироваться",
+    "forgotPassword": "Забыли пароль?",
+    "haveAccount": "Есть аккаунт?",
+    "noAccount": "Нет аккаунта?"
+  },
+  "search": {
+    "placeholder": "Поиск...",
+    "results": "Результаты",
+    "noResults": "Результаты не найдены",
+    "searchFor": "Поиск:"
+  },
+  "content": {
+    "author": "Автор",
+    "publishedDate": "Дата публикации",
+    "views": "просмотров",
+    "rating": "Рейтинг",
+    "categories": "Категории",
+    "description": "Описание",
+    "rateArticle": "Оценить статью",
+    "noArticles": "Статьи не найдены",
+    "noBooks": "Книги не найдены",
+    "noDissertations": "Диссертации не найдены",
+    "tryDifferentFilter": "Попробуйте другой фильтр",
+    "articleNotFound": "Статья не найдена",
+    "bookNotFound": "Книга не найдена",
+    "dissertationNotFound": "Диссертация не найдена"
+  },
+  "categories": {
+    "title": "Категории",
+    "all": "Все"
+  },
+  "filters": {
+    "all": "Все",
+    "local": "Местные",
+    "foreign": "Зарубежные",
+    "language": "Язык",
+    "date": "Дата"
+  },
+  "common": {
+    "back": "Назад",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "loading": "Загрузка...",
+    "clearFilter": "Очистить фильтры"
+  },
+  "footer": {
+    "about": "О нас",
+    "aboutText": "Цифровая библиотека Университета имени Сарыньязова Мырата",
+    "quickLinks": "Быстрые ссылки",
+    "support": "Поддержка",
+    "contact": "Контакты",
+    "help": "Помощь",
+    "faq": "Частые вопросы",
+    "copyright": "Цифровая библиотека SMU. Все права защищены."
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "nav": {
+    "articles": "Articles",
+    "books": "Books",
+    "dissertations": "Dissertations",
+    "search": "Search",
+    "bookmarks": "Bookmarks",
+    "profile": "Profile"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password",
+    "passwordConfirm": "Confirm Password",
+    "loginButton": "Login",
+    "registerButton": "Register",
+    "forgotPassword": "Forgot password?",
+    "haveAccount": "Have an account?",
+    "noAccount": "Don't have an account?"
+  },
+  "search": {
+    "placeholder": "Search...",
+    "results": "Results",
+    "noResults": "No results found",
+    "searchFor": "Search for:"
+  },
+  "content": {
+    "author": "Author",
+    "publishedDate": "Published Date",
+    "views": "views",
+    "rating": "Rating",
+    "categories": "Categories",
+    "description": "Description",
+    "rateArticle": "Rate this article",
+    "noArticles": "No articles found",
+    "noBooks": "No books found",
+    "noDissertations": "No dissertations found",
+    "tryDifferentFilter": "Try a different filter",
+    "articleNotFound": "Article not found",
+    "bookNotFound": "Book not found",
+    "dissertationNotFound": "Dissertation not found"
+  },
+  "categories": {
+    "title": "Categories",
+    "all": "All"
+  },
+  "filters": {
+    "all": "All",
+    "local": "Local",
+    "foreign": "Foreign",
+    "language": "Language",
+    "date": "Date"
+  },
+  "common": {
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "clearFilter": "Clear filters"
+  },
+  "footer": {
+    "about": "About",
+    "aboutText": "Sarynyýazov Myrat University Digital Library",
+    "quickLinks": "Quick Links",
+    "support": "Support",
+    "contact": "Contact",
+    "help": "Help",
+    "faq": "FAQ",
+    "copyright": "SMU Digital Library. All rights reserved."
+  }
+}
